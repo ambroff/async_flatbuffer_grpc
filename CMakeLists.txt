@@ -14,6 +14,14 @@
 
 cmake_minimum_required(VERSION 2.8.12)  # Ships with Ubuntu 14.04 (Trusty)
 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+include(HunterGate)
+HunterGate(
+    URL "https://github.com/ambroff/hunter/archive/45d24531d4d7159a62e91f45cb32e24b21c7133b.zip"
+    SHA1 "c0a8663ede5593d281bb50d5884789f9f1a9ea9f"
+)
+
+
 project(async_grpc)
 
 set(ASYNC_GRPC_MAJOR_VERSION 0)
@@ -25,8 +33,21 @@ set(ASYNC_GRPC_SOVERSION ${ASYNC_GRPC_MAJOR_VERSION}.${ASYNC_GRPC_MINOR_VERSION}
 include("${PROJECT_SOURCE_DIR}/cmake/functions.cmake")
 google_initialize_async_grpc_project()
 enable_testing()
-find_package(GMock REQUIRED)
-find_package(Protobuf 3.0.0 REQUIRED)
+
+hunter_add_package(GTest)
+find_package(GMock CONFIG REQUIRED)
+
+hunter_add_package(Protobuf)
+find_package(Protobuf CONFIG REQUIRED)
+
+hunter_add_package(glog)
+find_package(glog CONFIG REQUIRED)
+
+hunter_add_package(gflags)
+find_package(gflags CONFIG REQUIRED)
+
+hunter_add_package(gRPC)
+find_package(gRPC CONFIG REQUIRED)
 
 set(ALL_LIBRARY_HDRS
     async_grpc/client.h
@@ -100,7 +121,7 @@ foreach(RELATIVEPATH ${ALL_TESTS})
   target_link_libraries("${TEST_TARGET_NAME}" PUBLIC grpc++)
 endforeach()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC glog)
+target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
 target_link_libraries(${PROJECT_NAME} PUBLIC gflags)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
@@ -110,7 +131,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
 target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_LIBRARY} pthread)
 
 # TODO(cschuet): Write FindGRPC.cmake
-target_link_libraries(${PROJECT_NAME} PUBLIC grpc++)
+target_link_libraries(${PROJECT_NAME} PUBLIC gRPC::grpc++)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
