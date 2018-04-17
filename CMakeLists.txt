@@ -99,7 +99,7 @@ foreach(RELATIVEPATH ${ALL_PROTOS})
   add_custom_command(
     OUTPUT "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.cc"
            "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.h"
-    COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
+    COMMAND  protobuf::protoc
     ARGS --cpp_out  ${PROJECT_BINARY_DIR} -I
       ${PROJECT_SOURCE_DIR} ${RELATIVEPATH}
     DEPENDS ${RELATIVEPATH}
@@ -117,8 +117,8 @@ foreach(RELATIVEPATH ${ALL_TESTS})
   # Replace slashes as required for CMP0037.
   string(REPLACE "/" "." TEST_TARGET_NAME "${DIR}/${FILENAME}")
   google_test("${TEST_TARGET_NAME}" ${RELATIVEPATH})
-  target_link_libraries(${TEST_TARGET_NAME} PUBLIC ${GMOCK_LIBRARY})
-  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC grpc++)
+  target_link_libraries(${TEST_TARGET_NAME} PUBLIC GMock::main)
+  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC gRPC::grpc++)
 endforeach()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
@@ -128,7 +128,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
   ${PROTOBUF_INCLUDE_DIR})
 # TODO(hrapp): This should not explicitly list pthread and use
 # PROTOBUF_LIBRARIES, but that failed on first try.
-target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_LIBRARY} pthread)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf pthread)
 
 # TODO(cschuet): Write FindGRPC.cmake
 target_link_libraries(${PROJECT_NAME} PUBLIC gRPC::grpc++)
