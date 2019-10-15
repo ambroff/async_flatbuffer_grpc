@@ -35,7 +35,7 @@ class ExecutionContext {
   template <typename ContextType>
   class Synchronized {
    public:
-    ContextType* operator->() {
+    ContextType* operator->() const {
       return static_cast<ContextType*>(execution_context_);
     }
     Synchronized(common::Mutex* lock, ExecutionContext* execution_context)
