@@ -1,4 +1,5 @@
 # Copyright 2018 The Cartographer Authors
+# Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 2.8.12)  # Ships with Ubuntu 14.04 (Trusty)
+cmake_minimum_required(VERSION 3.11)
+
+set(CMAKE_CXX_STANDARD 17)
+
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+include(HunterGate)
+HunterGate(
+  URL "https://github.com/ambroff/hunter/archive/incubator-2020-08-27_4.zip"
+  SHA1 "eea132eafa4b99b9737d5aa8f96e9bec01280d23"
+  LOCAL
+)
 
 project(async_grpc)
 
@@ -25,8 +36,25 @@ set(ASYNC_GRPC_SOVERSION ${ASYNC_GRPC_MAJOR_VERSION}.${ASYNC_GRPC_MINOR_VERSION}
 include("${PROJECT_SOURCE_DIR}/cmake/functions.cmake")
 google_initialize_async_grpc_project()
 enable_testing()
-find_package(GMock REQUIRED)
-find_package(Protobuf 3.0.0 REQUIRED)
+
+hunter_add_package(GTest)
+find_package(GTest CONFIG REQUIRED)
+
+hunter_add_package(flatbuffers)
+find_package(Flatbuffers CONFIG REQUIRED)
+include(flatbuffer_generate)
+
+hunter_add_package(Protobuf)
+find_package(Protobuf CONFIG REQUIRED)
+
+hunter_add_package(glog)
+find_package(glog CONFIG REQUIRED)
+
+hunter_add_package(gflags)
+find_package(gflags CONFIG REQUIRED)
+
+hunter_add_package(gRPC)
+find_package(gRPC CONFIG REQUIRED)
 
 set(ALL_LIBRARY_HDRS
     async_grpc/async_client.h
@@ -40,11 +68,13 @@ set(ALL_LIBRARY_HDRS
     async_grpc/completion_queue_pool.h
     async_grpc/completion_queue_thread.h
     async_grpc/event_queue_thread.h
+    async_grpc/events.h
     async_grpc/execution_context.h
     async_grpc/retry.h
     async_grpc/rpc.h
-    async_grpc/rpc_handler_interface.h
+    async_grpc/rpc_handler_info.h
     async_grpc/rpc_handler.h
+    async_grpc/rpc_interface.h
     async_grpc/rpc_service_method_traits.h
     async_grpc/server.h
     async_grpc/service.h
@@ -58,8 +88,8 @@ set(ALL_LIBRARY_SRCS
     async_grpc/completion_queue_pool.cc
     async_grpc/completion_queue_thread.cc
     async_grpc/event_queue_thread.cc
+    async_grpc/events.cc
     async_grpc/retry.cc
-    async_grpc/rpc.cc
     async_grpc/server.cc
     async_grpc/service.cc)
 
@@ -71,29 +101,16 @@ set(ALL_TESTS
 set(ALL_PROTOS
     async_grpc/proto/math_service.proto)
 
-set(ALL_PROTO_SRCS)
-set(ALL_PROTO_HDRS)
-foreach(RELATIVEPATH ${ALL_PROTOS})
-  get_filename_component(DIR ${RELATIVEPATH} DIRECTORY)
-  get_filename_component(FILENAME ${RELATIVEPATH} NAME_WE)
-
-  list(APPEND ALL_PROTO_SRCS "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.cc")
-  list(APPEND ALL_PROTO_HDRS "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.h")
-
-  add_custom_command(
-    OUTPUT "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.cc"
-           "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.h"
-    COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
-    ARGS --cpp_out  ${PROJECT_BINARY_DIR} -I
-      ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/${RELATIVEPATH}
-    DEPENDS ${RELATIVEPATH}
-    COMMENT "Running C++ protocol buffer compiler on ${RELATIVEPATH}"
-    VERBATIM
+flatbuffer_generate(
+  WITH_GRPC
+  OUTPUT ALL_TEST_GRPC_FILES
+  INCLUDE_PATH async_grpc/schemas
+  SCHEMAS async_grpc/schemas/math_service.fbs
   )
-endforeach()
-set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENERATED TRUE)
 
-add_library(${PROJECT_NAME} ${ALL_LIBRARY_HDRS} ${ALL_LIBRARY_SRCS} ${ALL_PROTO_HDRS} ${ALL_PROTO_SRCS})
+set_source_files_properties(${ALL_TEST_GRPC_FILES} PROPERTIES GENERATED TRUE)
+
+add_library(${PROJECT_NAME} ${ALL_LIBRARY_HDRS} ${ALL_LIBRARY_SRCS} ${ALL_TEST_GRPC_FILES})
 
 foreach(RELATIVEPATH ${ALL_TESTS})
   get_filename_component(DIR ${RELATIVEPATH} DIRECTORY)
@@ -101,21 +118,27 @@ foreach(RELATIVEPATH ${ALL_TESTS})
   # Replace slashes as required for CMP0037.
   string(REPLACE "/" "." TEST_TARGET_NAME "${DIR}/${FILENAME}")
   google_test("${TEST_TARGET_NAME}" ${RELATIVEPATH})
-  target_link_libraries(${TEST_TARGET_NAME} PUBLIC ${GMOCK_LIBRARY})
-  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC grpc++)
+  target_link_libraries(${TEST_TARGET_NAME} PUBLIC GTest::gmock_main)
+  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC gRPC::grpc++ flatbuffers::flatbuffers)
+  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC flatbuffers::flatbuffers)
+  target_include_directories("${TEST_TARGET_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 endforeach()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC glog)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
 target_link_libraries(${PROJECT_NAME} PUBLIC gflags)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
   ${PROTOBUF_INCLUDE_DIR})
 # TODO(hrapp): This should not explicitly list pthread and use
 # PROTOBUF_LIBRARIES, but that failed on first try.
-target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_LIBRARY} pthread)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf pthread)
 
 # TODO(cschuet): Write FindGRPC.cmake
-target_link_libraries(${PROJECT_NAME} PUBLIC grpc++)
+target_link_libraries(${PROJECT_NAME} PUBLIC gRPC::grpc++)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC flatbuffers::flatbuffers)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
@@ -165,3 +188,25 @@ install(
   FILES ${PROJECT_BINARY_DIR}/cmake/async_grpc/async_grpc-config.cmake
   DESTINATION share/async_grpc/
 )
+
+find_program(CLANG_FORMAT_EXE
+  NAMES clang-format-11 clang-format-10 clang-format-8 clang-format
+  PATHS /usr/bin /usr/local/bin ${LISDK_INSTALL_ROOT}/bin
+  DOC "Path to clang-format executable."
+  )
+if (NOT CLANG_FORMAT_EXE)
+  message(STATUS "clang-format not found.")
+else()
+  message(STATUS "clang-format found: ${CLANG_FORMAT_EXE}")
+endif()
+
+if (CLANG_FORMAT_EXE)
+  file(GLOB_RECURSE ALL_H_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.h)
+  file(GLOB_RECURSE ALL_HPP_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.hpp)
+  file(GLOB_RECURSE ALL_HPP_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.hpp.in)
+  file(GLOB_RECURSE ALL_CPP_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.cpp)
+  file(GLOB_RECURSE ALL_CC_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.cc)
+  set(ASYNC_GRPC_SOURCE_AND_HEADER_FILES
+    ${ALL_H_FILES} ${ALL_HPP_FILES} ${ALL_HPP_INCLUDE_FILES} ${ALL_CPP_FILES} ${ALL_CC_FILES})
+  add_custom_target(clang-format COMMAND ${CLANG_FORMAT_EXE} -i ${ASYNC_GRPC_SOURCE_AND_HEADER_FILES})
+endif()

@@ -18,24 +18,20 @@
   <description>
     Framework for building asynchronous, multi-threaded gRPC services
   </description>
-  <maintainer email="google-cartographer@googlegroups.com">
-    The Cartographer Authors
+  <maintainer email="kyle@ambroffkao.com">
+    Kyle Ambroff-Kao
   </maintainer>
   <license>Apache 2.0</license>
-
-  <url>https://github.com/googlecartographer/async_grpc</url>
-
+  <url>https://github.com/ambroff/async_grpc</url>
   <buildtool_depend>catkin</buildtool_depend>
-
   <build_depend>g++-static</build_depend>
   <build_depend>google-mock</build_depend>
-
   <depend>boost</depend>
   <depend>grpc</depend>
+  <depend>flatbuffers</depend>
   <depend>libgflags-dev</depend>
   <depend>libgoogle-glog-dev</depend>
   <depend>protobuf-dev</depend>
-
   <export>
     <build_type>cmake</build_type>
   </export>

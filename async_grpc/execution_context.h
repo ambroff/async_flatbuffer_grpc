@@ -1,5 +1,6 @@
 /*
  * Copyright 2017 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +36,7 @@ class ExecutionContext {
   template <typename ContextType>
   class Synchronized {
    public:
-    ContextType* operator->() {
+    ContextType* operator->() const {
       return static_cast<ContextType*>(execution_context_);
     }
     Synchronized(common::Mutex* lock, ExecutionContext* execution_context)

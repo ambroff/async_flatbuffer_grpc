@@ -1,5 +1,6 @@
 /*
  * Copyright 2017 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +31,12 @@
 #include "async_grpc/rpc_handler.h"
 #include "async_grpc/rpc_service_method_traits.h"
 #include "async_grpc/service.h"
-
 #include "grpc++/grpc++.h"
 
 namespace async_grpc {
 namespace {
 
-constexpr int kDefaultMaxMessageSize = 10 * 1024 * 1024;  // 10 MB
+constexpr int kDefaultMaxMessageSize = 10 * 1024 * 1024;    // 10 MB
 constexpr double kDefaultTracingSamplerProbability = 0.01;  // 1 Percent
 
 }  // namespace
@@ -64,6 +64,9 @@ class Server {
   };
 
  public:
+  Server(const Server&) = delete;
+  Server& operator=(const Server&) = delete;
+
   // This 'Builder' is the only way to construct a 'Server'.
   class Builder {
    public:
@@ -96,15 +99,16 @@ class Server {
       rpc_handlers_[service_full_name].emplace(
           method_name,
           RpcHandlerInfo{
-              RequestType::default_instance().GetDescriptor(),
-              ResponseType::default_instance().GetDescriptor(),
-              [](Rpc* const rpc, ExecutionContext* const execution_context) {
-                std::unique_ptr<RpcHandlerInterface> rpc_handler =
-                    common::make_unique<RpcHandlerType>();
-                rpc_handler->SetRpc(rpc);
-                rpc_handler->SetExecutionContext(execution_context);
-                rpc_handler->Initialize();
-                return rpc_handler;
+              [](int method_index,
+                 ::grpc::ServerCompletionQueue* server_completion_queue,
+                 EventQueue* event_queue, ExecutionContext* execution_context,
+                 const RpcHandlerInfo& rpc_handler_info, Service* service,
+                 WeakPtrFactory weak_ptr_factory) {
+                return std::make_unique<
+                    Rpc<RpcHandlerType, Service, RequestType, ResponseType>>(
+                    method_index, server_completion_queue, event_queue,
+                    execution_context, rpc_handler_info, service,
+                    weak_ptr_factory);
               },
               RpcServiceMethod::StreamType, method_full_name});
     }
@@ -118,39 +122,45 @@ class Server {
     template <typename RpcHandlerType>
     void CheckHandlerCompatibility(const std::string& service_full_name,
                                    const std::string& method_name) {
-      using RpcServiceMethod = typename RpcHandlerType::RpcServiceMethod;
-      using RequestType = typename RpcServiceMethod::RequestType;
-      using ResponseType = typename RpcServiceMethod::ResponseType;
-
-      const auto* pool = google::protobuf::DescriptorPool::generated_pool();
-      const auto* service = pool->FindServiceByName(service_full_name);
-      CHECK(service) << "Unknown service " << service_full_name;
-      const auto* method_descriptor = service->FindMethodByName(method_name);
-      CHECK(method_descriptor) << "Unknown method " << method_name
-                               << " in service " << service_full_name;
-      const auto* request_type = method_descriptor->input_type();
-      CHECK_EQ(RequestType::default_instance().GetDescriptor(), request_type);
-      const auto* response_type = method_descriptor->output_type();
-      CHECK_EQ(ResponseType::default_instance().GetDescriptor(), response_type);
-      const auto rpc_type = RpcServiceMethod::StreamType;
-      switch (rpc_type) {
-        case ::grpc::internal::RpcMethod::NORMAL_RPC:
-          CHECK(!method_descriptor->client_streaming());
-          CHECK(!method_descriptor->server_streaming());
-          break;
-        case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
-          CHECK(method_descriptor->client_streaming());
-          CHECK(!method_descriptor->server_streaming());
-          break;
-        case ::grpc::internal::RpcMethod::SERVER_STREAMING:
-          CHECK(!method_descriptor->client_streaming());
-          CHECK(method_descriptor->server_streaming());
-          break;
-        case ::grpc::internal::RpcMethod::BIDI_STREAMING:
-          CHECK(method_descriptor->client_streaming());
-          CHECK(method_descriptor->server_streaming());
-          break;
-      }
+      // KWA: FIXME: Re-implement this with flatbuffers to provide some more
+      // sanity checks.
+      //      using RpcServiceMethod = typename
+      //      RpcHandlerType::RpcServiceMethod; using RequestType = typename
+      //      RpcServiceMethod::RequestType; using ResponseType = typename
+      //      RpcServiceMethod::ResponseType;
+      //
+      //      const auto* pool =
+      //      google::protobuf::DescriptorPool::generated_pool(); const auto*
+      //      service = pool->FindServiceByName(service_full_name);
+      //      CHECK(service) << "Unknown service " << service_full_name;
+      //      const auto* method_descriptor =
+      //      service->FindMethodByName(method_name); CHECK(method_descriptor)
+      //      << "Unknown method " << method_name
+      //                               << " in service " << service_full_name;
+      //      const auto* request_type = method_descriptor->input_type();
+      //      CHECK_EQ(RequestType::default_instance().GetDescriptor(),
+      //      request_type); const auto* response_type =
+      //      method_descriptor->output_type();
+      //      CHECK_EQ(ResponseType::default_instance().GetDescriptor(),
+      //      response_type); const auto rpc_type =
+      //      RpcServiceMethod::StreamType; switch (rpc_type) {
+      //        case ::grpc::internal::RpcMethod::NORMAL_RPC:
+      //          CHECK(!method_descriptor->client_streaming());
+      //          CHECK(!method_descriptor->server_streaming());
+      //          break;
+      //        case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
+      //          CHECK(method_descriptor->client_streaming());
+      //          CHECK(!method_descriptor->server_streaming());
+      //          break;
+      //        case ::grpc::internal::RpcMethod::SERVER_STREAMING:
+      //          CHECK(!method_descriptor->client_streaming());
+      //          CHECK(method_descriptor->server_streaming());
+      //          break;
+      //        case ::grpc::internal::RpcMethod::BIDI_STREAMING:
+      //          CHECK(method_descriptor->client_streaming());
+      //          CHECK(method_descriptor->server_streaming());
+      //          break;
+      //      }
     }
 
     Options options_;
@@ -190,11 +200,9 @@ class Server {
       const std::map<std::string, RpcHandlerInfo>& rpc_handler_infos);
 
  private:
-  Server(const Server&) = delete;
-  Server& operator=(const Server&) = delete;
   void RunCompletionQueue(::grpc::ServerCompletionQueue* completion_queue);
-  void RunEventQueue(Rpc::EventQueue* event_queue);
-  Rpc::EventQueue* SelectNextEventQueueRoundRobin();
+  void RunEventQueue(EventQueue* event_queue);
+  EventQueue* SelectNextEventQueueRoundRobin();
 
   Options options_;
 
@@ -210,7 +218,7 @@ class Server {
   // Threads processing RPC events.
   std::vector<EventQueueThread> event_queue_threads_;
   common::Mutex current_event_queue_id_lock_;
-  int current_event_queue_id_ = 0;
+  std::size_t current_event_queue_id_ = 0;
 
   // Map of service names to services.
   std::map<std::string, Service> services_;
@@ -218,6 +226,8 @@ class Server {
   // A context object that is shared between all implementations of
   // 'RpcHandler'.
   std::unique_ptr<ExecutionContext> execution_context_;
+
+  friend class RpcInterface;
 };
 
 }  // namespace async_grpc

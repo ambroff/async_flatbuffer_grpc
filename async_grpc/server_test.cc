@@ -1,5 +1,6 @@
 /*
  * Copyright 2017 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +24,12 @@
 #include "async_grpc/async_client.h"
 #include "async_grpc/client.h"
 #include "async_grpc/execution_context.h"
-#include "async_grpc/proto/math_service.pb.h"
 #include "async_grpc/retry.h"
 #include "async_grpc/rpc_handler.h"
 #include "glog/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "grpc++/grpc++.h"
 #include "gtest/gtest.h"
+#include "math_service.grpc.fb.h"
 
 namespace async_grpc {
 namespace {
@@ -52,15 +52,17 @@ struct GetSumMethod {
 
 class GetSumHandler : public RpcHandler<GetSumMethod> {
  public:
-  void OnRequest(const proto::GetSumRequest& request) override {
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSumRequest>& request) override {
     sum_ += GetContext<MathServerContext>()->additional_increment();
-    sum_ += request.input();
+    sum_ += request.GetRoot()->input();
   }
 
   void OnReadsDone() override {
-    auto response = common::make_unique<proto::GetSumResponse>();
-    response->set_output(sum_);
-    Send(std::move(response));
+    flatbuffers::grpc::MessageBuilder builder;
+    auto response_offset = proto::CreateGetSumResponse(builder, sum_);
+    builder.Finish(response_offset);
+    Send(builder.ReleaseMessage<proto::GetSumResponse>());
   }
 
  private:
@@ -77,16 +79,24 @@ struct GetRunningSumMethod {
 
 class GetRunningSumHandler : public RpcHandler<GetRunningSumMethod> {
  public:
-  void OnRequest(const proto::GetSumRequest& request) override {
-    sum_ += request.input();
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSumRequest>& request) override {
+    sum_ += request.GetRoot()->input();
 
     // Respond twice to demonstrate bidirectional streaming.
-    auto response = common::make_unique<proto::GetSumResponse>();
-    response->set_output(sum_);
-    Send(std::move(response));
-    response = common::make_unique<proto::GetSumResponse>();
-    response->set_output(sum_);
-    Send(std::move(response));
+    {
+      flatbuffers::grpc::MessageBuilder builder;
+      auto response_offset = proto::CreateGetSumRequest(builder, sum_);
+      builder.Finish(response_offset);
+      Send(builder.ReleaseMessage<proto::GetSumResponse>());
+    }
+
+    {
+      flatbuffers::grpc::MessageBuilder builder;
+      auto response_offset = proto::CreateGetSumRequest(builder, sum_);
+      builder.Finish(response_offset);
+      Send(builder.ReleaseMessage<proto::GetSumResponse>());
+    }
   }
 
   void OnReadsDone() override { Finish(::grpc::Status::OK); }
@@ -105,13 +115,19 @@ struct GetSquareMethod {
 
 class GetSquareHandler : public RpcHandler<GetSquareMethod> {
  public:
-  void OnRequest(const proto::GetSquareRequest& request) override {
-    if (request.input() < 0) {
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSquareRequest>& request) override {
+    auto input = request.GetRoot()->input();
+
+    if (input < 0) {
       Finish(::grpc::Status(::grpc::INTERNAL, "internal error"));
     }
-    auto response = common::make_unique<proto::GetSquareResponse>();
-    response->set_output(request.input() * request.input());
-    Send(std::move(response));
+
+    flatbuffers::grpc::MessageBuilder builder;
+    auto response_offset =
+        proto::CreateGetSquareResponse(builder, input * input);
+    builder.Finish(response_offset);
+    Send(builder.ReleaseMessage<proto::GetSquareResponse>());
   }
 };
 
@@ -125,14 +141,16 @@ struct GetEchoMethod {
 
 class GetEchoHandler : public RpcHandler<GetEchoMethod> {
  public:
-  void OnRequest(const proto::GetEchoRequest& request) override {
-    int value = request.input();
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetEchoRequest>& request) override {
+    int value = request.GetRoot()->input();
     Writer writer = GetWriter();
     GetContext<MathServerContext>()->echo_responder.set_value(
         [writer, value]() {
-          auto response = common::make_unique<proto::GetEchoResponse>();
-          response->set_output(value);
-          return writer.Write(std::move(response));
+          flatbuffers::grpc::MessageBuilder builder;
+          auto response_offset = proto::CreateGetEchoResponse(builder, value);
+          builder.Finish(response_offset);
+          return writer.Write(builder.ReleaseMessage<proto::GetEchoResponse>());
         });
   }
 };
@@ -147,12 +165,15 @@ struct GetSequenceMethod {
 
 class GetSequenceHandler : public RpcHandler<GetSequenceMethod> {
  public:
-  void OnRequest(const proto::GetSequenceRequest& request) override {
-    for (int i = 0; i < request.input(); ++i) {
-      auto response = common::make_unique<proto::GetSequenceResponse>();
-      response->set_output(i);
-      Send(std::move(response));
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSequenceRequest>& request) override {
+    for (int i = 0; i < request.GetRoot()->input(); ++i) {
+      flatbuffers::grpc::MessageBuilder builder;
+      auto response_offset = proto::CreateGetSequenceResponse(builder, i);
+      builder.Finish(response_offset);
+      Send(builder.ReleaseMessage<proto::GetSequenceResponse>());
     }
+
     Finish(::grpc::Status::OK);
   }
 };
@@ -198,35 +219,39 @@ TEST_F(ServerTest, StartAndStopServerTest) {}
 TEST_F(ServerTest, ProcessRpcStreamTest) {
   Client<GetSumMethod> client(client_channel_);
   for (int i = 0; i < 3; ++i) {
-    proto::GetSumRequest request;
-    request.set_input(i);
-    EXPECT_TRUE(client.Write(request));
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetSumRequest(builder, i);
+    builder.Finish(request_offset);
+    EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetSumRequest>()));
   }
   EXPECT_TRUE(client.StreamWritesDone());
   EXPECT_TRUE(client.StreamFinish().ok());
-  EXPECT_EQ(client.response().output(), 33);
+  EXPECT_EQ(client.response().GetRoot()->output(), 33);
 }
 
 TEST_F(ServerTest, ProcessUnaryRpcTest) {
   Client<GetSquareMethod> client(client_channel_);
-  proto::GetSquareRequest request;
-  request.set_input(11);
-  EXPECT_TRUE(client.Write(request));
-  EXPECT_EQ(client.response().output(), 121);
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSquareRequest(builder, 11);
+  builder.Finish(request_offset);
+  EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetSquareRequest>()));
+  EXPECT_EQ(client.response().GetRoot()->output(), 121);
 }
 
 TEST_F(ServerTest, ProcessBidiStreamingRpcTest) {
   Client<GetRunningSumMethod> client(client_channel_);
   for (int i = 0; i < 3; ++i) {
-    proto::GetSumRequest request;
-    request.set_input(i);
-    EXPECT_TRUE(client.Write(request));
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetSumRequest(builder, i);
+    builder.Finish(request_offset);
+    EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetSumRequest>()));
   }
   client.StreamWritesDone();
-  proto::GetSumResponse response;
+
+  flatbuffers::grpc::Message<proto::GetSumResponse> response;
   std::list<int> expected_responses = {0, 0, 1, 1, 3, 3};
   while (client.StreamRead(&response)) {
-    EXPECT_EQ(expected_responses.front(), response.output());
+    EXPECT_EQ(expected_responses.front(), response.GetRoot()->output());
     expected_responses.pop_front();
   }
   EXPECT_TRUE(expected_responses.empty());
@@ -244,25 +269,33 @@ TEST_F(ServerTest, WriteFromOtherThread) {
   });
 
   Client<GetEchoMethod> client(client_channel_);
-  proto::GetEchoRequest request;
-  request.set_input(13);
-  EXPECT_TRUE(client.Write(request));
+  {
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetEchoRequest(builder, 13);
+    builder.Finish(request_offset);
+    EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetEchoRequest>()));
+  }
   response_thread.join();
-  EXPECT_EQ(client.response().output(), 13);
+  EXPECT_EQ(client.response().GetRoot()->output(), 13);
 }
 
 TEST_F(ServerTest, ProcessServerStreamingRpcTest) {
   Client<GetSequenceMethod> client(client_channel_);
-  proto::GetSequenceRequest request;
-  request.set_input(12);
-
-  client.Write(request);
-  proto::GetSequenceResponse response;
-  for (int i = 0; i < 12; ++i) {
-    EXPECT_TRUE(client.StreamRead(&response));
-    EXPECT_EQ(response.output(), i);
+  {
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetSequenceRequest(builder, 12);
+    builder.Finish(request_offset);
+    client.Write(builder.ReleaseMessage<proto::GetSequenceRequest>());
   }
-  EXPECT_FALSE(client.StreamRead(&response));
+
+  for (int i = 0; i < 12; ++i) {
+    flatbuffers::grpc::Message<proto::GetSequenceResponse> response;
+    EXPECT_TRUE(client.StreamRead(&response));
+    EXPECT_EQ(response.GetRoot()->output(), i);
+  }
+
+  flatbuffers::grpc::Message<proto::GetSequenceResponse> final_response;
+  EXPECT_FALSE(client.StreamRead(&final_response));
   EXPECT_TRUE(client.StreamFinish().ok());
 }
 
@@ -271,9 +304,11 @@ TEST_F(ServerTest, RetryWithUnrecoverableError) {
       client_channel_, common::FromSeconds(5),
       CreateUnlimitedConstantDelayStrategy(common::FromSeconds(1),
                                            {::grpc::INTERNAL}));
-  proto::GetSquareRequest request;
-  request.set_input(-11);
-  EXPECT_FALSE(client.Write(request));
+
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSquareRequest(builder, -11);
+  builder.Finish(request_offset);
+  EXPECT_FALSE(client.Write(builder.ReleaseMessage<proto::GetSquareRequest>()));
 }
 
 TEST_F(ServerTest, AsyncClientUnary) {
@@ -283,19 +318,23 @@ TEST_F(ServerTest, AsyncClientUnary) {
 
   AsyncClient<GetSquareMethod> async_client(
       client_channel_,
-      [&done, &m, &cv](const ::grpc::Status& status,
-                       const proto::GetSquareResponse* response) {
+      [&done, &m, &cv](
+          const ::grpc::Status& status,
+          const flatbuffers::grpc::Message<proto::GetSquareResponse>*
+              response) {
         EXPECT_TRUE(status.ok());
-        EXPECT_EQ(response->output(), 121);
+        EXPECT_EQ(response->GetRoot()->output(), 121);
         {
           std::lock_guard<std::mutex> lock(m);
           done = true;
         }
         cv.notify_all();
       });
-  proto::GetSquareRequest request;
-  request.set_input(11);
-  async_client.WriteAsync(request);
+
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSquareRequest(builder, 11);
+  builder.Finish(request_offset);
+  async_client.WriteAsync(builder.ReleaseMessage<proto::GetSquareRequest>());
 
   std::unique_lock<std::mutex> lock(m);
   cv.wait(lock, [&done] { return done; });
@@ -309,10 +348,11 @@ TEST_F(ServerTest, AsyncClientServerStreaming) {
 
   AsyncClient<GetSequenceMethod> async_client(
       client_channel_,
-      [&done, &m, &cv, &counter](const ::grpc::Status& status,
-                                 const proto::GetSequenceResponse* response) {
+      [&done, &m, &cv, &counter](
+          const ::grpc::Status& status,
+          const flatbuffers::grpc::Message<proto::GetSequenceResponse>*
+              response) {
         LOG(INFO) << status.error_code() << " " << status.error_message();
-        LOG(INFO) << (response ? response->DebugString() : "(nullptr)");
         EXPECT_TRUE(status.ok());
 
         if (!response) {
@@ -322,11 +362,14 @@ TEST_F(ServerTest, AsyncClientServerStreaming) {
           }
           cv.notify_all();
         } else {
-          EXPECT_EQ(response->output(), counter++);
+          EXPECT_EQ(response->GetRoot()->output(), counter++);
         }
       });
-  proto::GetSequenceRequest request;
-  request.set_input(10);
+
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSequenceRequest(builder, 10);
+  builder.Finish(request_offset);
+  auto request = builder.ReleaseMessage<proto::GetSequenceRequest>();
   async_client.WriteAsync(request);
 
   std::unique_lock<std::mutex> lock(m);

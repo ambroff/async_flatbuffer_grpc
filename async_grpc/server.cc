@@ -1,5 +1,6 @@
 /*
  * Copyright 2017 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +27,6 @@ namespace async_grpc {
 namespace {
 
 const common::Duration kPopEventTimeout = common::FromMilliseconds(100);
-constexpr unsigned int kDefaultTracingMaxAttributes = 128;
-constexpr unsigned int kDefaultTracingMaxAnnotations = 128;
-constexpr unsigned int kDefaultTracingMaxMessageEvents = 128;
-constexpr unsigned int kDefaultTracingMaxLinks = 128;
 
 }  // namespace
 
@@ -46,12 +43,14 @@ void Server::Builder::SetServerAddress(const std::string& server_address) {
 }
 
 void Server::Builder::SetMaxReceiveMessageSize(int max_receive_message_size) {
-  CHECK_GT(max_receive_message_size, 0) << "max_receive_message_size must be larger than 0.";
+  CHECK_GT(max_receive_message_size, 0)
+      << "max_receive_message_size must be larger than 0.";
   options_.max_receive_message_size = max_receive_message_size;
 }
 
 void Server::Builder::SetMaxSendMessageSize(int max_send_message_size) {
-  CHECK_GT(max_send_message_size, 0) << "max_send_message_size must be larger than 0.";
+  CHECK_GT(max_send_message_size, 0)
+      << "max_send_message_size must be larger than 0.";
   options_.max_send_message_size = max_send_message_size;
 }
 
@@ -63,11 +62,10 @@ void Server::Builder::EnableTracing() {
 #endif
 }
 
-void Server::Builder::DisableTracing() {
-  options_.enable_tracing = false;
-}
+void Server::Builder::DisableTracing() { options_.enable_tracing = false; }
 
-void Server::Builder::SetTracingSamplerProbability(double tracing_sampler_probability) {
+void Server::Builder::SetTracingSamplerProbability(
+    double tracing_sampler_probability) {
   options_.tracing_sampler_probability = tracing_sampler_probability;
 }
 
@@ -75,7 +73,8 @@ void Server::Builder::SetTracingTaskName(const std::string& tracing_task_name) {
   options_.tracing_task_name = tracing_task_name;
 }
 
-void Server::Builder::SetTracingGcpProjectId(const std::string& tracing_gcp_project_id) {
+void Server::Builder::SetTracingGcpProjectId(
+    const std::string& tracing_gcp_project_id) {
   options_.tracing_gcp_project_id = tracing_gcp_project_id;
 }
 
@@ -136,8 +135,8 @@ void Server::RunCompletionQueue(
   bool ok;
   void* tag;
   while (completion_queue->Next(&tag, &ok)) {
-    auto* rpc_event = static_cast<Rpc::CompletionQueueRpcEvent*>(tag);
-    rpc_event->ok = ok;
+    auto* rpc_event = static_cast<CompletionQueueRpcEvent*>(tag);
+    rpc_event->ok(ok);
     rpc_event->PushToEventQueue();
   }
 }
@@ -151,15 +150,14 @@ EventQueue* Server::SelectNextEventQueueRoundRobin() {
 
 void Server::RunEventQueue(EventQueue* event_queue) {
   while (!shutting_down_) {
-    Rpc::UniqueEventPtr rpc_event =
-        event_queue->PopWithTimeout(kPopEventTimeout);
+    UniqueEventPtr rpc_event = event_queue->PopWithTimeout(kPopEventTimeout);
     if (rpc_event) {
       rpc_event->Handle();
     }
   }
 
   // Finish processing the rest of the items.
-  while (Rpc::UniqueEventPtr rpc_event =
+  while (UniqueEventPtr rpc_event =
              event_queue->PopWithTimeout(kPopEventTimeout)) {
     rpc_event->Handle();
   }
@@ -177,7 +175,6 @@ void Server::Start() {
              options_.tracing_sampler_probability)});
   }
 #endif
-
 
   // Start the gRPC server process.
   server_ = server_builder_.BuildAndStart();

@@ -1,5 +1,6 @@
-/*
+/**
  * Copyright 2017 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef CPP_GRPC_RPC_HANDLER_H
-#define CPP_GRPC_RPC_HANDLER_H
+#pragma once
 
 #include "async_grpc/execution_context.h"
 #include "async_grpc/rpc.h"
-#include "async_grpc/rpc_handler_interface.h"
+#include "async_grpc/rpc_handler_info.h"
 #include "async_grpc/rpc_service_method_traits.h"
 #include "async_grpc/span.h"
 #include "glog/logging.h"
-#include "google/protobuf/message.h"
 #include "grpc++/grpc++.h"
 #if BUILD_TRACING
 #include "async_grpc/opencensus_span.h"
@@ -32,20 +30,27 @@
 namespace async_grpc {
 
 template <typename RpcServiceMethodConcept>
-class RpcHandler : public RpcHandlerInterface {
+class RpcHandler {
  public:
   using RpcServiceMethod = RpcServiceMethodTraits<RpcServiceMethodConcept>;
   using RequestType = typename RpcServiceMethod::RequestType;
   using ResponseType = typename RpcServiceMethod::ResponseType;
 
+  virtual ~RpcHandler() = default;
+
   class Writer {
    public:
-    explicit Writer(std::weak_ptr<Rpc> rpc) : rpc_(std::move(rpc)) {}
-    bool Write(std::unique_ptr<ResponseType> message) const {
+    explicit Writer(std::weak_ptr<RpcInterface> rpc) : rpc_{std::move(rpc)} {}
+
+    bool Write(flatbuffers::grpc::Message<ResponseType> message) const {
       if (auto rpc = rpc_.lock()) {
-        rpc->Write(std::move(message));
+        CHECK(dynamic_cast<RpcWriterInterface<ResponseType>*>(rpc.get()));
+        auto rpc_writer =
+            static_cast<RpcWriterInterface<ResponseType>*>(rpc.get());
+        rpc_writer->Write(std::move(message));
         return true;
       }
+
       return false;
     }
     bool WritesDone() const {
@@ -58,17 +63,19 @@ class RpcHandler : public RpcHandlerInterface {
     bool Finish(const ::grpc::Status& status) const {
       if (auto rpc = rpc_.lock()) {
         rpc->Finish(status);
+#if BUILD_TRACING
         auto* span = rpc->handler()->trace_span();
         if (span) {
           span->SetStatus(status);
         }
+#endif
         return true;
       }
       return false;
     }
 
    private:
-    const std::weak_ptr<Rpc> rpc_;
+    const std::weak_ptr<RpcInterface> rpc_;
   };
 
 #if BUILD_TRACING
@@ -78,41 +85,52 @@ class RpcHandler : public RpcHandlerInterface {
   virtual ~RpcHandler() { span_->End(); }
 #endif
 
-  Span* trace_span() override { return span_.get(); }
-  void SetExecutionContext(ExecutionContext* execution_context) override {
+#if BUILD_TRACING
+  virtual Span* trace_span() { return span_.get(); }
+#endif
+
+  virtual void SetExecutionContext(ExecutionContext* execution_context) {
     execution_context_ = execution_context;
   }
-  void SetRpc(Rpc* rpc) override { rpc_ = rpc; }
-  void OnRequestInternal(const ::google::protobuf::Message* request) override {
-    DCHECK(dynamic_cast<const RequestType*>(request));
-    OnRequest(static_cast<const RequestType&>(*request));
-  }
-  virtual void OnRequest(const RequestType& request) = 0;
+
+  virtual void SetRpc(RpcWriterInterface<ResponseType>* rpc) { rpc_ = rpc; }
+
+  virtual void Initialize() {}
+
+  virtual void OnRequest(flatbuffers::grpc::Message<RequestType>& request) = 0;
+
   void Finish(::grpc::Status status) {
     rpc_->Finish(status);
 #if BUILD_TRACING
     span_->SetStatus(status);
 #endif
   }
-  void Send(std::unique_ptr<ResponseType> response) {
+
+  void Send(flatbuffers::grpc::Message<ResponseType> response) {
     rpc_->Write(std::move(response));
   }
+
   template <typename T>
   ExecutionContext::Synchronized<T> GetContext() {
     return {execution_context_->lock(), execution_context_};
   }
+
   template <typename T>
   T* GetUnsynchronizedContext() {
     return dynamic_cast<T*>(execution_context_);
   }
+
   Writer GetWriter() { return Writer(rpc_->GetWeakPtr()); }
 
+  virtual void OnReadsDone() {}
+  virtual void OnFinish() {}
+
  private:
-  Rpc* rpc_;
-  ExecutionContext* execution_context_;
+  RpcWriterInterface<ResponseType>* rpc_{nullptr};
+  ExecutionContext* execution_context_{nullptr};
+#if BUILD_TRACING
   std::unique_ptr<Span> span_;
+#endif
 };
 
 }  // namespace async_grpc
-
-#endif  // CPP_GRPC_RPC_HANDLER_H

@@ -1,6 +1,8 @@
 <div style="text-align:center"><img src ="gfx/logo.png" /></div>
 
-# Tiny C++ gRPC Server Framework
+# Tiny C++ gRPC+flatbuffers Server Framework
+
+This is a fork of the [cartographer-project/async_grpc](https://github.com/cartographer-project/async_grpc) project, modified to use flatbuffers instead of protocolbuffers. The changes required to support flatbuffers require such significant changes that it doesn't seem practical to merge them upstream.
 
 ## Objective
 <a name="objective"></a>
@@ -30,21 +32,19 @@ So we built a small server framework on top of the existing gRPC async mechanism
 
 We start by defining the gRPC service as a proto service definition:
 
-```proto
-syntax = "proto3";
+```fbs
+namespace api;
 
-package proto;
-
-message GetSquareRequest {
-  int32 input = 1;
+table GetSquareRequest {
+  input: int32;
 }
 
-message GetSquareResponse {
-  int32 output = 1;
+table GetSquareResponse {
+  output: int32;
 }
 
-service Math {
-  rpc GetSquare(GetSquareRequest) returns (GetSquareResponse);
+rpc_service Math {
+  GetSquare(GetSquareRequest): GetSquareResponse;
 }
 ```
 
@@ -55,16 +55,18 @@ Next we define an implementation of the business logic that consumes the request
 
 ```C++
 DEFINE_HANDLER_SIGNATURE(
-    GetSquareSignature, proto::GetSquareRequest, proto::GetSquareResponse,
-    "/proto.Math/GetSquare")
+    GetSquareSignature, api::GetSquareRequest, api::GetSquareResponse,
+    "/api.Math/GetSquare")
 
 class GetSquareHandler : public RpcHandler<GetSquareSignature> {
  public:
-  void OnRequest(const proto::GetSquareRequest& request) override {
-    auto response =
-        cartographer::common::make_unique<proto::GetSquareResponse>();
-    response->set_output(request.input() * request.input());
-    Send(std::move(response));
+  void OnRequest(flatbuffers::grpc::Message<proto::GetSquareRequest>& request) override {
+    auto input = request.GetRoot()->input();
+    
+    flatbuffers::grpc::MessageBuilder builder;
+    auto response_offset = api::CreateGetSquaredResponse(builder, input * input);
+    builder.Finish(response_offset);
+    Send(builder.ReleaseMessage<api::GetSquaredResponse>());
   }
 };
 ```

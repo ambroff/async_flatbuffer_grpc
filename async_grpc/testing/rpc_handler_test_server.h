@@ -1,5 +1,6 @@
 /*
  * Copyright 2018 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +23,7 @@
 
 #include "async_grpc/client.h"
 #include "async_grpc/common/blocking_queue.h"
-#include "async_grpc/rpc_handler_interface.h"
+#include "async_grpc/rpc_handler_info.h"
 #include "async_grpc/server.h"
 #include "async_grpc/testing/rpc_handler_wrapper.h"
 #include "grpc++/grpc++.h"
@@ -63,7 +64,7 @@ class RpcHandlerTestServer : public Server {
 
   ~RpcHandlerTestServer() { this->Shutdown(); };
 
-  bool SendWrite(const RequestType &message, ::grpc::Status *status = nullptr) {
+  bool SendWrite(const RequestType& message, ::grpc::Status* status = nullptr) {
     bool success = client_.Write(message, status);
     WaitForHandlerCompletion(RpcHandlerWrapper<RpcHandlerType>::ON_REQUEST);
     return success;
@@ -72,7 +73,7 @@ class RpcHandlerTestServer : public Server {
   // Parses a request message from the passed string and issues the
   // request against the handler, waits for the handler to complete
   // processing before returning.
-  void SendWrite(const std::string &serialized_message) {
+  void SendWrite(const std::string& serialized_message) {
     RequestType message;
     message.ParseFromString(serialized_message);
     Write(message);
@@ -92,7 +93,7 @@ class RpcHandlerTestServer : public Server {
     WaitForHandlerCompletion(RpcHandlerWrapper<RpcHandlerType>::ON_FINISH);
   }
 
-  const ResponseType &response() { return client_.response(); }
+  const ResponseType& response() { return client_.response(); }
 
  private:
   using ClientWriter = ::grpc::internal::ClientWriterFactory<RequestType>;
@@ -102,7 +103,7 @@ class RpcHandlerTestServer : public Server {
     CHECK_EQ(rpc_handler_event_queue_.Pop(), event);
   }
 
-  RpcHandlerInfo GetRpcHandlerInfo(const std::string &method_full_name) {
+  RpcHandlerInfo GetRpcHandlerInfo(const std::string& method_full_name) {
     ::grpc::internal::RpcMethod::RpcType rpc_type =
         RpcType<typename RpcServiceMethodConcept::IncomingType,
                 typename RpcServiceMethodConcept::OutgoingType>::value;
@@ -112,8 +113,8 @@ class RpcHandlerTestServer : public Server {
           rpc_handler_event_queue_.Push(event);
         };
     auto handler_instantiator = [event_callback](
-                                    Rpc *const rpc,
-                                    ExecutionContext *const execution_context) {
+                                    Rpc* const rpc,
+                                    ExecutionContext* const execution_context) {
       std::unique_ptr<RpcHandlerInterface> rpc_handler =
           common::make_unique<RpcHandlerWrapper<RpcHandlerType>>(
               event_callback);

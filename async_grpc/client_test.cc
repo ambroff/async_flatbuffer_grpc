@@ -1,5 +1,6 @@
 /*
  * Copyright 2018 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +17,11 @@
 
 #include "async_grpc/client.h"
 
-#include "async_grpc/proto/math_service.pb.h"
 #include "async_grpc/retry.h"
 #include "glog/logging.h"
 #include "grpc++/grpc++.h"
 #include "gtest/gtest.h"
+#include "math_service.grpc.fb.h"
 
 namespace async_grpc {
 namespace {
@@ -39,9 +40,12 @@ TEST(ClientTest, TimesOut) {
   auto client_channel = ::grpc::CreateChannel(
       kWrongAddress, ::grpc::InsecureChannelCredentials());
   Client<GetEchoMethod> client(client_channel, common::FromSeconds(0.1));
-  proto::GetEchoRequest request;
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetEchoRequest(builder, 0);
+  builder.Finish(request_offset);
+  auto request = builder.ReleaseMessage<proto::GetEchoRequest>();
   grpc::Status status;
-  EXPECT_FALSE(client.Write(request, &status));
+  EXPECT_FALSE(client.Write(std::move(request), &status));
 }
 
 TEST(ClientTest, TimesOutWithRetries) {
@@ -50,9 +54,12 @@ TEST(ClientTest, TimesOutWithRetries) {
   Client<GetEchoMethod> client(
       client_channel, common::FromSeconds(0.5),
       CreateLimitedBackoffStrategy(common::FromSeconds(0.1), 1, 3));
-  proto::GetEchoRequest request;
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetEchoRequest(builder, 0);
+  builder.Finish(request_offset);
+  auto request = builder.ReleaseMessage<proto::GetEchoRequest>();
   grpc::Status status;
-  EXPECT_FALSE(client.Write(request, &status));
+  EXPECT_FALSE(client.Write(std::move(request), &status));
 }
 
 }  // namespace

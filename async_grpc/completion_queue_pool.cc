@@ -1,5 +1,6 @@
 /*
  * Copyright 2018 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +15,11 @@
  * limitations under the License.
  */
 
+#include "async_grpc/completion_queue_pool.h"
+
 #include <cstdlib>
 
 #include "async_grpc/async_client.h"
-#include "async_grpc/completion_queue_pool.h"
 #include "common/make_unique.h"
 #include "glog/logging.h"
 
@@ -89,8 +91,7 @@ void CompletionQueuePool::Shutdown() {
 }
 
 CompletionQueuePool::CompletionQueuePool()
-    : number_completion_queues_(kDefaultNumberCompletionQueues) {
-}
+    : number_completion_queues_(kDefaultNumberCompletionQueues) {}
 
 CompletionQueuePool::~CompletionQueuePool() {
   LOG(INFO) << "~CompletionQueuePool";

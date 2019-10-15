@@ -1,5 +1,6 @@
 /*
  * Copyright 2018 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +18,17 @@
 #ifndef CPP_GRPC_CLIENT_H
 #define CPP_GRPC_CLIENT_H
 
+#include <utility>
+
 #include "async_grpc/common/optional.h"
 #include "async_grpc/retry.h"
-#include "async_grpc/rpc_handler_interface.h"
+#include "async_grpc/rpc_handler_info.h"
 #include "async_grpc/rpc_service_method_traits.h"
-
+#include "glog/logging.h"
 #include "grpc++/grpc++.h"
 #include "grpc++/impl/codegen/client_unary_call.h"
 #include "grpc++/impl/codegen/proto_utils.h"
 #include "grpc++/impl/codegen/sync_stream.h"
-
-#include "glog/logging.h"
 
 namespace async_grpc {
 
@@ -49,7 +50,7 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
 
  public:
   Client(std::shared_ptr<::grpc::Channel> channel)
-      : channel_(channel),
+      : channel_(std::move(channel)),
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
@@ -59,15 +60,16 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
   // towards a single timeout.
   Client(std::shared_ptr<::grpc::Channel> channel, common::Duration timeout,
          RetryStrategy retry_strategy = nullptr)
-      : channel_(channel),
+      : channel_(std::move(channel)),
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
                     channel_),
         timeout_(timeout),
-        retry_strategy_(retry_strategy) {}
+        retry_strategy_(std::move(retry_strategy)) {}
 
-  bool Write(const RequestType& request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     common::optional<std::chrono::system_clock::time_point> deadline;
     if (timeout_.has_value()) {
@@ -87,7 +89,9 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
     return result;
   }
 
-  const ResponseType& response() { return response_; }
+  const flatbuffers::grpc::Message<ResponseType>& response() {
+    return response_;
+  }
 
  private:
   static std::unique_ptr<::grpc::ClientContext> ResetContext(
@@ -99,15 +103,17 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
     return context;
   }
 
-  bool WriteImpl(const RequestType& request, ::grpc::Status* status) {
+  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request,
+                 ::grpc::Status* status) {
     auto status_normal_rpc = MakeBlockingUnaryCall(request, &response_);
     if (status != nullptr) {
       *status = status_normal_rpc;
     }
     return status_normal_rpc.ok();
   }
-  ::grpc::Status MakeBlockingUnaryCall(const RequestType& request,
-                                       ResponseType* response) {
+  ::grpc::Status MakeBlockingUnaryCall(
+      const flatbuffers::grpc::Message<RequestType>& request,
+      flatbuffers::grpc::Message<ResponseType>* response) {
     return ::grpc::internal::BlockingUnaryCall(
         channel_.get(), rpc_method_, client_context_.get(), request, response);
   }
@@ -118,7 +124,7 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
   const ::grpc::internal::RpcMethod rpc_method_;
   common::optional<common::Duration> timeout_;
 
-  ResponseType response_;
+  flatbuffers::grpc::Message<ResponseType> response_;
   RetryStrategy retry_strategy_;
 };
 
@@ -131,13 +137,14 @@ class Client<RpcServiceMethodConcept,
 
  public:
   Client(std::shared_ptr<::grpc::Channel> channel)
-      : channel_(channel),
+      : channel_{std::move(channel)},
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
                     channel_) {}
 
-  bool Write(const RequestType& request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     WriteImpl(request, &internal_status);
     if (status != nullptr) {
@@ -156,10 +163,13 @@ class Client<RpcServiceMethodConcept,
     return client_writer_->Finish();
   }
 
-  const ResponseType& response() { return response_; }
+  const flatbuffers::grpc::Message<ResponseType>& response() {
+    return response_;
+  }
 
  private:
-  bool WriteImpl(const RequestType& request, ::grpc::Status* status) {
+  bool WriteImpl(flatbuffers::grpc::Message<RequestType>& request,
+                 ::grpc::Status* status) {
     InstantiateClientWriterIfNeeded();
     return client_writer_->Write(request);
   }
@@ -167,8 +177,9 @@ class Client<RpcServiceMethodConcept,
   void InstantiateClientWriterIfNeeded() {
     if (!client_writer_) {
       client_writer_.reset(
-          ::grpc::internal::ClientWriterFactory<RequestType>::Create(
-              channel_.get(), rpc_method_, client_context_.get(), &response_));
+          ::grpc::internal::ClientWriterFactory<flatbuffers::grpc::Message<
+              RequestType>>::Create(channel_.get(), rpc_method_,
+                                    client_context_.get(), &response_));
     }
   }
 
@@ -177,8 +188,9 @@ class Client<RpcServiceMethodConcept,
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
 
-  std::unique_ptr<::grpc::ClientWriter<RequestType>> client_writer_;
-  ResponseType response_;
+  std::unique_ptr<::grpc::ClientWriter<flatbuffers::grpc::Message<RequestType>>>
+      client_writer_;
+  flatbuffers::grpc::Message<ResponseType> response_;
 };
 
 template <typename RpcServiceMethodConcept>
@@ -196,12 +208,13 @@ class Client<RpcServiceMethodConcept,
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
                     channel_) {}
 
-  bool StreamRead(ResponseType* response) {
+  bool StreamRead(flatbuffers::grpc::Message<ResponseType>* response) {
     CHECK(client_reader_);
     return client_reader_->Read(response);
   }
 
-  bool Write(const RequestType& request, ::grpc::Status* status = nullptr) {
+  bool Write(const flatbuffers::grpc::Message<RequestType>& request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     WriteImpl(request, &internal_status);
     if (status != nullptr) {
@@ -216,15 +229,18 @@ class Client<RpcServiceMethodConcept,
   }
 
  private:
-  bool WriteImpl(const RequestType& request, ::grpc::Status* status) {
+  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request,
+                 ::grpc::Status* status) {
     InstantiateClientReader(request);
     return true;
   }
 
-  void InstantiateClientReader(const RequestType& request) {
+  void InstantiateClientReader(
+      const flatbuffers::grpc::Message<RequestType>& request) {
     client_reader_.reset(
-        ::grpc::internal::ClientReaderFactory<ResponseType>::Create(
-            channel_.get(), rpc_method_, client_context_.get(), request));
+        ::grpc::internal::ClientReaderFactory<flatbuffers::grpc::Message<
+            ResponseType>>::Create(channel_.get(), rpc_method_,
+                                   client_context_.get(), request));
   }
 
   std::shared_ptr<::grpc::Channel> channel_;
@@ -232,7 +248,9 @@ class Client<RpcServiceMethodConcept,
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
 
-  std::unique_ptr<::grpc::ClientReader<ResponseType>> client_reader_;
+  std::unique_ptr<
+      ::grpc::ClientReader<flatbuffers::grpc::Message<ResponseType>>>
+      client_reader_;
 };
 
 template <typename RpcServiceMethodConcept>
@@ -244,18 +262,19 @@ class Client<RpcServiceMethodConcept,
 
  public:
   Client(std::shared_ptr<::grpc::Channel> channel)
-      : channel_(channel),
+      : channel_(std::move(channel)),
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
                     channel_) {}
 
-  bool StreamRead(ResponseType* response) {
+  bool StreamRead(flatbuffers::grpc::Message<ResponseType>* response) {
     InstantiateClientReaderWriterIfNeeded();
     return client_reader_writer_->Read(response);
   }
 
-  bool Write(const RequestType& request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     WriteImpl(request, &internal_status);
     if (status != nullptr) {
@@ -275,7 +294,8 @@ class Client<RpcServiceMethodConcept,
   }
 
  private:
-  bool WriteImpl(const RequestType& request, ::grpc::Status* status) {
+  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request,
+                 ::grpc::Status* status) {
     InstantiateClientReaderWriterIfNeeded();
     return client_reader_writer_->Write(request);
   }
@@ -284,8 +304,11 @@ class Client<RpcServiceMethodConcept,
     if (!client_reader_writer_) {
       client_reader_writer_.reset(
           ::grpc::internal::ClientReaderWriterFactory<
-              RequestType, ResponseType>::Create(channel_.get(), rpc_method_,
-                                                 client_context_.get()));
+              flatbuffers::grpc::Message<RequestType>,
+              flatbuffers::grpc::Message<ResponseType>>::Create(channel_.get(),
+                                                                rpc_method_,
+                                                                client_context_
+                                                                    .get()));
     }
   }
 
@@ -294,7 +317,9 @@ class Client<RpcServiceMethodConcept,
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
 
-  std::unique_ptr<::grpc::ClientReaderWriter<RequestType, ResponseType>>
+  std::unique_ptr<
+      ::grpc::ClientReaderWriter<flatbuffers::grpc::Message<RequestType>,
+                                 flatbuffers::grpc::Message<ResponseType>>>
       client_reader_writer_;
 };
 
