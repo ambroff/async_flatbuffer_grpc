@@ -14,6 +14,14 @@
 
 cmake_minimum_required(VERSION 2.8.12)  # Ships with Ubuntu 14.04 (Trusty)
 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+include(HunterGate)
+HunterGate(
+  URL "https://github.com/ambroff/hunter/archive/incubator-2020-08-27_4.zip"
+  SHA1 "eea132eafa4b99b9737d5aa8f96e9bec01280d23"
+  LOCAL
+)
+
 project(async_grpc)
 
 set(ASYNC_GRPC_MAJOR_VERSION 0)
@@ -25,8 +33,21 @@ set(ASYNC_GRPC_SOVERSION ${ASYNC_GRPC_MAJOR_VERSION}.${ASYNC_GRPC_MINOR_VERSION}
 include("${PROJECT_SOURCE_DIR}/cmake/functions.cmake")
 google_initialize_async_grpc_project()
 enable_testing()
-find_package(GMock REQUIRED)
-find_package(Protobuf 3.0.0 REQUIRED)
+
+hunter_add_package(GTest)
+find_package(GTest CONFIG REQUIRED)
+
+hunter_add_package(Protobuf)
+find_package(Protobuf CONFIG REQUIRED)
+
+hunter_add_package(glog)
+find_package(glog CONFIG REQUIRED)
+
+hunter_add_package(gflags)
+find_package(gflags CONFIG REQUIRED)
+
+hunter_add_package(gRPC)
+find_package(gRPC CONFIG REQUIRED)
 
 set(ALL_LIBRARY_HDRS
     async_grpc/async_client.h
@@ -83,7 +104,7 @@ foreach(RELATIVEPATH ${ALL_PROTOS})
   add_custom_command(
     OUTPUT "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.cc"
            "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.h"
-    COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
+    COMMAND  protobuf::protoc
     ARGS --cpp_out  ${PROJECT_BINARY_DIR} -I
       ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/${RELATIVEPATH}
     DEPENDS ${RELATIVEPATH}
@@ -101,21 +122,21 @@ foreach(RELATIVEPATH ${ALL_TESTS})
   # Replace slashes as required for CMP0037.
   string(REPLACE "/" "." TEST_TARGET_NAME "${DIR}/${FILENAME}")
   google_test("${TEST_TARGET_NAME}" ${RELATIVEPATH})
-  target_link_libraries(${TEST_TARGET_NAME} PUBLIC ${GMOCK_LIBRARY})
-  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC grpc++)
+  target_link_libraries(${TEST_TARGET_NAME} PUBLIC GTest::gmock_main)
+  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC gRPC::grpc++)
 endforeach()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC glog)
+target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
 target_link_libraries(${PROJECT_NAME} PUBLIC gflags)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
   ${PROTOBUF_INCLUDE_DIR})
 # TODO(hrapp): This should not explicitly list pthread and use
 # PROTOBUF_LIBRARIES, but that failed on first try.
-target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_LIBRARY} pthread)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf pthread)
 
 # TODO(cschuet): Write FindGRPC.cmake
-target_link_libraries(${PROJECT_NAME} PUBLIC grpc++)
+target_link_libraries(${PROJECT_NAME} PUBLIC gRPC::grpc++)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
