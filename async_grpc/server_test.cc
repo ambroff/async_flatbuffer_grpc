@@ -58,9 +58,10 @@ class GetSumHandler : public RpcHandler<GetSumMethod> {
   }
 
   void OnReadsDone() override {
-    auto response = common::make_unique<proto::GetSumResponse>();
-    response->set_output(sum_);
-    Send(std::move(response));
+    flatbuffers::grpc::MessageBuilder builder;
+    auto response_offset = proto::CreateGetSumResponse(builder, sum_);
+    builder.Finish(response_offset);
+    Send(builder.ReleaseMessage<proto::GetSumResponse>());
   }
 
  private:
@@ -81,12 +82,19 @@ class GetRunningSumHandler : public RpcHandler<GetRunningSumMethod> {
     sum_ += request.input();
 
     // Respond twice to demonstrate bidirectional streaming.
-    auto response = common::make_unique<proto::GetSumResponse>();
-    response->set_output(sum_);
-    Send(std::move(response));
-    response = common::make_unique<proto::GetSumResponse>();
-    response->set_output(sum_);
-    Send(std::move(response));
+    {
+      flatbuffers::grpc::MessageBuilder builder;
+      auto response_offset = proto::CreateGetSumRequest(builder, sum_);
+      builder.Finish(response_offset);
+      Send(builder.ReleaseMessage<proto::GetSumResponse>());
+    }
+
+    {
+      flatbuffers::grpc::MessageBuilder builder;
+      auto response_offset = proto::CreateGetSumRequest(builder, sum_);
+      builder.Finish(response_offset);
+      Send(builder.ReleaseMessage<proto::GetSumResponse>());
+    }
   }
 
   void OnReadsDone() override { Finish(::grpc::Status::OK); }
@@ -109,9 +117,11 @@ class GetSquareHandler : public RpcHandler<GetSquareMethod> {
     if (request.input() < 0) {
       Finish(::grpc::Status(::grpc::INTERNAL, "internal error"));
     }
-    auto response = common::make_unique<proto::GetSquareResponse>();
-    response->set_output(request.input() * request.input());
-    Send(std::move(response));
+
+    flatbuffers::grpc::MessageBuilder builder;
+    auto response_offset = proto::CreateGetSquareResponse(builder, request.input() * request.input());
+    builder.Finish(response_offset);
+    Send(builder.ReleaseMessage<proto::GetSquareResponse>());
   }
 };
 
@@ -130,9 +140,10 @@ class GetEchoHandler : public RpcHandler<GetEchoMethod> {
     Writer writer = GetWriter();
     GetContext<MathServerContext>()->echo_responder.set_value(
         [writer, value]() {
-          auto response = common::make_unique<proto::GetEchoResponse>();
-          response->set_output(value);
-          return writer.Write(std::move(response));
+          flatbuffers::grpc::MessageBuilder builder;
+          auto response_offset = proto::CreateGetEchoResponse(builder, value);
+          builder.Finish(response_offset);
+          return writer.Write(builder.ReleaseMessage<proto::GetEchoResponse>());
         });
   }
 };
@@ -149,10 +160,12 @@ class GetSequenceHandler : public RpcHandler<GetSequenceMethod> {
  public:
   void OnRequest(const proto::GetSequenceRequest& request) override {
     for (int i = 0; i < request.input(); ++i) {
-      auto response = common::make_unique<proto::GetSequenceResponse>();
-      response->set_output(i);
-      Send(std::move(response));
+      flatbuffers::grpc::MessageBuilder builder;
+      auto response_offset = proto::CreateGetSequenceResponse(builder, i);
+      builder.Finish(response_offset);
+      Send(builder.ReleaseMessage<proto::GetSequenceResponse>());
     }
+
     Finish(::grpc::Status::OK);
   }
 };
@@ -198,9 +211,10 @@ TEST_F(ServerTest, StartAndStopServerTest) {}
 TEST_F(ServerTest, ProcessRpcStreamTest) {
   Client<GetSumMethod> client(client_channel_);
   for (int i = 0; i < 3; ++i) {
-    proto::GetSumRequest request;
-    request.set_input(i);
-    EXPECT_TRUE(client.Write(request));
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetSumRequest(builder, i);
+    builder.Finish(request_offset);
+    EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetSumRequest>()));
   }
   EXPECT_TRUE(client.StreamWritesDone());
   EXPECT_TRUE(client.StreamFinish().ok());
@@ -209,24 +223,27 @@ TEST_F(ServerTest, ProcessRpcStreamTest) {
 
 TEST_F(ServerTest, ProcessUnaryRpcTest) {
   Client<GetSquareMethod> client(client_channel_);
-  proto::GetSquareRequest request;
-  request.set_input(11);
-  EXPECT_TRUE(client.Write(request));
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSquareRequest(builder, 11);
+  builder.Finish(request_offset);
+  EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetSquareRequest>()));
   EXPECT_EQ(client.response().output(), 121);
 }
 
 TEST_F(ServerTest, ProcessBidiStreamingRpcTest) {
   Client<GetRunningSumMethod> client(client_channel_);
   for (int i = 0; i < 3; ++i) {
-    proto::GetSumRequest request;
-    request.set_input(i);
-    EXPECT_TRUE(client.Write(request));
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetSumRequest(builder, i);
+    builder.Finish(request_offset);
+    EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetSumRequest>()));
   }
   client.StreamWritesDone();
-  proto::GetSumResponse response;
+
+  flatbuffers::grpc::Message<proto::GetSumResponse> response;
   std::list<int> expected_responses = {0, 0, 1, 1, 3, 3};
   while (client.StreamRead(&response)) {
-    EXPECT_EQ(expected_responses.front(), response.output());
+    EXPECT_EQ(expected_responses.front(), response.GetRoot()->output());
     expected_responses.pop_front();
   }
   EXPECT_TRUE(expected_responses.empty());
@@ -271,9 +288,11 @@ TEST_F(ServerTest, RetryWithUnrecoverableError) {
       client_channel_, common::FromSeconds(5),
       CreateUnlimitedConstantDelayStrategy(common::FromSeconds(1),
                                            {::grpc::INTERNAL}));
-  proto::GetSquareRequest request;
-  request.set_input(-11);
-  EXPECT_FALSE(client.Write(request));
+
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSquareRequest(builder, -11);
+  builder.Finish(request_offset);
+  EXPECT_FALSE(builder.ReleaseMessage<proto::GetSquareRequest>());
 }
 
 TEST_F(ServerTest, AsyncClientUnary) {

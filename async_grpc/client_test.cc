@@ -39,9 +39,12 @@ TEST(ClientTest, TimesOut) {
   auto client_channel = ::grpc::CreateChannel(
       kWrongAddress, ::grpc::InsecureChannelCredentials());
   Client<GetEchoMethod> client(client_channel, common::FromSeconds(0.1));
-  proto::GetEchoRequest request;
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetEchoRequest(builder, 0);
+  builder.Finish(request_offset);
+  auto request = builder.ReleaseMessage<proto::GetEchoRequest>();
   grpc::Status status;
-  EXPECT_FALSE(client.Write(request, &status));
+  EXPECT_FALSE(client.Write(std::move(request), &status));
 }
 
 TEST(ClientTest, TimesOutWithRetries) {
@@ -50,9 +53,12 @@ TEST(ClientTest, TimesOutWithRetries) {
   Client<GetEchoMethod> client(
       client_channel, common::FromSeconds(0.5),
       CreateLimitedBackoffStrategy(common::FromSeconds(0.1), 1, 3));
-  proto::GetEchoRequest request;
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetEchoRequest(builder, 0);
+  builder.Finish(request_offset);
+  auto request = builder.ReleaseMessage<proto::GetEchoRequest>();
   grpc::Status status;
-  EXPECT_FALSE(client.Write(request, &status));
+  EXPECT_FALSE(client.Write(std::move(request), &status));
 }
 
 }  // namespace

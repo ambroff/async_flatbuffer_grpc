@@ -17,6 +17,8 @@
 #ifndef CPP_GRPC_CLIENT_H
 #define CPP_GRPC_CLIENT_H
 
+#include <utility>
+
 #include "async_grpc/common/optional.h"
 #include "async_grpc/retry.h"
 #include "async_grpc/rpc_handler_interface.h"
@@ -49,7 +51,7 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
 
  public:
   Client(std::shared_ptr<::grpc::Channel> channel)
-      : channel_(channel),
+      : channel_(std::move(channel)),
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
@@ -59,15 +61,15 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
   // towards a single timeout.
   Client(std::shared_ptr<::grpc::Channel> channel, common::Duration timeout,
          RetryStrategy retry_strategy = nullptr)
-      : channel_(channel),
+      : channel_(std::move(channel)),
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
                     channel_),
         timeout_(timeout),
-        retry_strategy_(retry_strategy) {}
+        retry_strategy_(std::move(retry_strategy)) {}
 
-  bool Write(const RequestType& request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request, ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     common::optional<std::chrono::system_clock::time_point> deadline;
     if (timeout_.has_value()) {
@@ -131,13 +133,13 @@ class Client<RpcServiceMethodConcept,
 
  public:
   Client(std::shared_ptr<::grpc::Channel> channel)
-      : channel_(channel),
+      : channel_{std::move(channel)},
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
                     channel_) {}
 
-  bool Write(const RequestType& request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request, ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     WriteImpl(request, &internal_status);
     if (status != nullptr) {
@@ -244,7 +246,7 @@ class Client<RpcServiceMethodConcept,
 
  public:
   Client(std::shared_ptr<::grpc::Channel> channel)
-      : channel_(channel),
+      : channel_(std::move(channel)),
         client_context_(common::make_unique<::grpc::ClientContext>()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,

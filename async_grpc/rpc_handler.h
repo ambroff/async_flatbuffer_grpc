@@ -41,7 +41,7 @@ class RpcHandler : public RpcHandlerInterface {
   class Writer {
    public:
     explicit Writer(std::weak_ptr<Rpc> rpc) : rpc_(std::move(rpc)) {}
-    bool Write(std::unique_ptr<ResponseType> message) const {
+    bool Write(flatbuffers::grpc::Message<ResponseType> message) const {
       if (auto rpc = rpc_.lock()) {
         rpc->Write(std::move(message));
         return true;
@@ -94,7 +94,7 @@ class RpcHandler : public RpcHandlerInterface {
     span_->SetStatus(status);
 #endif
   }
-  void Send(std::unique_ptr<ResponseType> response) {
+  void Send(flatbuffers::grpc::Message<ResponseType> response) {
     rpc_->Write(std::move(response));
   }
   template <typename T>
