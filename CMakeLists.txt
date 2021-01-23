@@ -37,6 +37,10 @@ enable_testing()
 hunter_add_package(GTest)
 find_package(GTest CONFIG REQUIRED)
 
+hunter_add_package(flatbuffers)
+find_package(Flatbuffers CONFIG REQUIRED)
+include(flatbuffer_generate)
+
 hunter_add_package(Protobuf)
 find_package(Protobuf CONFIG REQUIRED)
 
@@ -92,29 +96,16 @@ set(ALL_TESTS
 set(ALL_PROTOS
     async_grpc/proto/math_service.proto)
 
-set(ALL_PROTO_SRCS)
-set(ALL_PROTO_HDRS)
-foreach(RELATIVEPATH ${ALL_PROTOS})
-  get_filename_component(DIR ${RELATIVEPATH} DIRECTORY)
-  get_filename_component(FILENAME ${RELATIVEPATH} NAME_WE)
-
-  list(APPEND ALL_PROTO_SRCS "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.cc")
-  list(APPEND ALL_PROTO_HDRS "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.h")
-
-  add_custom_command(
-    OUTPUT "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.cc"
-           "${PROJECT_BINARY_DIR}/${DIR}/${FILENAME}.pb.h"
-    COMMAND  protobuf::protoc
-    ARGS --cpp_out  ${PROJECT_BINARY_DIR} -I
-      ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/${RELATIVEPATH}
-    DEPENDS ${RELATIVEPATH}
-    COMMENT "Running C++ protocol buffer compiler on ${RELATIVEPATH}"
-    VERBATIM
+flatbuffer_generate(
+  WITH_GRPC
+  OUTPUT ALL_TEST_GRPC_FILES
+  INCLUDE_PATH async_grpc/schemas
+  SCHEMAS async_grpc/schemas/math_service.fbs
   )
-endforeach()
-set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENERATED TRUE)
 
-add_library(${PROJECT_NAME} ${ALL_LIBRARY_HDRS} ${ALL_LIBRARY_SRCS} ${ALL_PROTO_HDRS} ${ALL_PROTO_SRCS})
+set_source_files_properties(${ALL_TEST_GRPC_FILES} PROPERTIES GENERATED TRUE)
+
+add_library(${PROJECT_NAME} ${ALL_LIBRARY_HDRS} ${ALL_LIBRARY_SRCS} ${ALL_TEST_GRPC_FILES})
 
 foreach(RELATIVEPATH ${ALL_TESTS})
   get_filename_component(DIR ${RELATIVEPATH} DIRECTORY)
@@ -123,8 +114,12 @@ foreach(RELATIVEPATH ${ALL_TESTS})
   string(REPLACE "/" "." TEST_TARGET_NAME "${DIR}/${FILENAME}")
   google_test("${TEST_TARGET_NAME}" ${RELATIVEPATH})
   target_link_libraries(${TEST_TARGET_NAME} PUBLIC GTest::gmock_main)
-  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC gRPC::grpc++)
+  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC gRPC::grpc++ flatbuffers::flatbuffers)
+  target_link_libraries("${TEST_TARGET_NAME}" PUBLIC flatbuffers::flatbuffers)
+  target_include_directories("${TEST_TARGET_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 endforeach()
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
 target_link_libraries(${PROJECT_NAME} PUBLIC gflags)
@@ -137,6 +132,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf pthread)
 
 # TODO(cschuet): Write FindGRPC.cmake
 target_link_libraries(${PROJECT_NAME} PUBLIC gRPC::grpc++)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC flatbuffers::flatbuffers)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>

@@ -16,7 +16,7 @@
 
 #include "async_grpc/client.h"
 
-#include "async_grpc/proto/math_service.pb.h"
+#include "math_service.grpc.fb.h"
 #include "async_grpc/retry.h"
 #include "glog/logging.h"
 #include "grpc++/grpc++.h"

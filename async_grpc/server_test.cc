@@ -23,7 +23,7 @@
 #include "async_grpc/async_client.h"
 #include "async_grpc/client.h"
 #include "async_grpc/execution_context.h"
-#include "async_grpc/proto/math_service.pb.h"
+#include "math_service.grpc.fb.h"
 #include "async_grpc/retry.h"
 #include "async_grpc/rpc_handler.h"
 #include "glog/logging.h"

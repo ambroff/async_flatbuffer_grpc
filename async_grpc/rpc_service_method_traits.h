@@ -1,8 +1,9 @@
 #ifndef CPP_GRPC_RPC_SERVICE_METHOD_TRAITS_H
 #define CPP_GRPC_RPC_SERVICE_METHOD_TRAITS_H
 
+#include <flatbuffers/grpc.h>
+
 #include "async_grpc/type_traits.h"
-#include "google/protobuf/message.h"
 
 namespace async_grpc {
 
@@ -54,13 +55,13 @@ struct RpcServiceMethodTraits {
       StripStream<typename RpcServiceMethodConcept::OutgoingType>;
 
   static_assert(
-      std::is_base_of<::google::protobuf::Message, RequestType>::value,
-      "The RPC request type must be derived from ::google::protobuf::Message.");
+      std::is_base_of<::flatbuffers::Table, RequestType>::value,
+      "The RPC request type must be derived from ::flatbuffers::grpc::Message.");
 
   static_assert(
-      std::is_base_of<::google::protobuf::Message, ResponseType>::value,
+      std::is_base_of<::flatbuffers::Table, ResponseType>::value,
       "The RPC response type must be derived from "
-      "::google::protobuf::Message.");
+      "::flatbuffers::grpc::Message.");
 
   // The streaming type of the service method. See also
   // ::grpc::internal::RpcMethod.
