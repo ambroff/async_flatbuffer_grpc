@@ -192,8 +192,11 @@ class Rpc : public RpcInterface {
     PerformWrite(send_item.msg, send_item.status);
   }
 
-  void Write(std::any message) override {
-    Write(std::move(std::any_cast<flatbuffers::grpc::Message<ResponseType>>(message)));
+  void Write(std::unique_ptr<AnyMessage> message) override {
+    // KWA: FIXME: This needs to be implemented.
+    // This should indirectly call the overload that takes the flatbuffer
+    // message ResponseType.
+    throw std::runtime_error{"Not implemented"};
   }
 
   void Write(flatbuffers::grpc::Message<ResponseType> message) {
