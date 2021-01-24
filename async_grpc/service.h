@@ -1,5 +1,6 @@
 /*
  * Copyright 2017 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef CPP_GRPC_SERVICE_H
-#define CPP_GRPC_SERVICE_H
+#pragma once
 
 #include "async_grpc/completion_queue_thread.h"
+#include "async_grpc/events.h"
 #include "async_grpc/event_queue_thread.h"
 #include "async_grpc/execution_context.h"
 #include "async_grpc/rpc.h"
@@ -30,27 +30,26 @@ namespace async_grpc {
 // responsible for managing the lifetime of active RPCs issued against methods
 // of the service and distributing incoming gRPC events to their respective
 // 'Rpc' handler objects.
-class Service : public ::grpc::Service {
+class Service : public ::grpc::Service, public EventHandlerInterface {
  public:
   using EventQueueSelector = std::function<EventQueue*()>;
-  friend class Rpc;
 
   Service(const std::string& service_name,
           const std::map<std::string, RpcHandlerInfo>& rpc_handlers,
           EventQueueSelector event_queue_selector);
   void StartServing(std::vector<CompletionQueueThread>& completion_queues,
                     ExecutionContext* execution_context);
-  void HandleEvent(Rpc::Event event, Rpc* rpc, bool ok);
+  void HandleEvent(Event event, RpcInterface* rpc, bool ok) override;
   void StopServing();
 
  private:
-  void HandleNewConnection(Rpc* rpc, bool ok);
-  void HandleRead(Rpc* rpc, bool ok);
-  void HandleWrite(Rpc* rpc, bool ok);
-  void HandleFinish(Rpc* rpc, bool ok);
-  void HandleDone(Rpc* rpc, bool ok);
+  void HandleNewConnection(RpcInterface* rpc, bool ok);
+  void HandleRead(RpcInterface* rpc, bool ok);
+  void HandleWrite(RpcInterface* rpc, bool ok);
+  void HandleFinish(RpcInterface* rpc, bool ok);
+  void HandleDone(RpcInterface* rpc, bool ok);
 
-  void RemoveIfNotPending(Rpc* rpc);
+  void RemoveIfNotPending(RpcInterface* rpc);
 
   std::map<std::string, RpcHandlerInfo> rpc_handler_infos_;
   EventQueueSelector event_queue_selector_;
@@ -59,5 +58,3 @@ class Service : public ::grpc::Service {
 };
 
 }  // namespace async_grpc
-
-#endif  // CPP_GRPC_SERVICE_H

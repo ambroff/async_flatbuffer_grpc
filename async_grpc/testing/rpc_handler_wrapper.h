@@ -1,5 +1,6 @@
 /*
  * Copyright 2018 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef CPP_GRPC_TESTING_RPC_HANDLER_WRAPPER_H_
-#define CPP_GRPC_TESTING_RPC_HANDLER_WRAPPER_H_
+#pragma once
 
 #include <functional>
 
-namespace async_grpc {
-namespace testing {
+#include <flatbuffers/grpc.h>
+
+namespace async_grpc::testing {
 
 template <class RpcHandlerType>
 class RpcHandlerWrapper : public RpcHandlerType {
@@ -31,7 +31,7 @@ class RpcHandlerWrapper : public RpcHandlerType {
   RpcHandlerWrapper(EventCallback event_callback)
       : event_callback_(event_callback) {}
 
-  void OnRequest(const typename RpcHandlerType::RequestType &request) override {
+  void OnRequest(const flatbuffers::grpc::Message<typename RpcHandlerType::RequestType> &request) override {
     RpcHandlerType::OnRequest(request);
     event_callback_(ON_REQUEST);
   }
@@ -50,7 +50,4 @@ class RpcHandlerWrapper : public RpcHandlerType {
   EventCallback event_callback_;
 };
 
-}  // namespace testing
-}  // namespace async_grpc
-
-#endif  // CPP_GRPC_TESTING_RPC_HANDLER_WRAPPER_H_
+}  // namespace async_grpc::testing

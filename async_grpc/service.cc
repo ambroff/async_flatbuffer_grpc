@@ -43,7 +43,7 @@ void Service::StartServing(
   int i = 0;
   for (const auto& rpc_handler_info : rpc_handler_infos_) {
     for (auto& completion_queue_thread : completion_queue_threads) {
-      std::shared_ptr<Rpc> rpc = active_rpcs_.Add(common::make_unique<Rpc>(
+      std::shared_ptr<RpcInterface> rpc = active_rpcs_.Add(rpc_handler_info.second.rpc_factory(
           i, completion_queue_thread.completion_queue(),
           event_queue_selector_(), execution_context, rpc_handler_info.second,
           this, active_rpcs_.GetWeakPtrFactory()));
@@ -55,28 +55,28 @@ void Service::StartServing(
 
 void Service::StopServing() { shutting_down_ = true; }
 
-void Service::HandleEvent(Rpc::Event event, Rpc* rpc, bool ok) {
+void Service::HandleEvent(Event event, RpcInterface* rpc, bool ok) {
   switch (event) {
-    case Rpc::Event::NEW_CONNECTION:
+    case Event::NEW_CONNECTION:
       HandleNewConnection(rpc, ok);
       break;
-    case Rpc::Event::READ:
+    case Event::READ:
       HandleRead(rpc, ok);
       break;
-    case Rpc::Event::WRITE_NEEDED:
-    case Rpc::Event::WRITE:
+    case Event::WRITE_NEEDED:
+    case Event::WRITE:
       HandleWrite(rpc, ok);
       break;
-    case Rpc::Event::FINISH:
+    case Event::FINISH:
       HandleFinish(rpc, ok);
       break;
-    case Rpc::Event::DONE:
+    case Event::DONE:
       HandleDone(rpc, ok);
       break;
   }
 }
 
-void Service::HandleNewConnection(Rpc* rpc, bool ok) {
+void Service::HandleNewConnection(RpcInterface* rpc, bool ok) {
   if (shutting_down_) {
     if (ok) {
       LOG(WARNING) << "Server shutting down. Refusing to handle new RPCs.";
@@ -96,7 +96,7 @@ void Service::HandleNewConnection(Rpc* rpc, bool ok) {
 
   // Create new active rpc to handle next connection and register it for the
   // incoming connection. Assign event queue in a round-robin fashion.
-  std::unique_ptr<Rpc> new_rpc = rpc->Clone();
+  std::unique_ptr<RpcInterface> new_rpc = rpc->Clone();
   new_rpc->SetEventQueue(event_queue_selector_());
   active_rpcs_.Add(std::move(new_rpc))->RequestNextMethodInvocation();
 }
@@ -114,7 +114,7 @@ void Service::HandleRead(Rpc* rpc, bool ok) {
   RemoveIfNotPending(rpc);
 }
 
-void Service::HandleWrite(Rpc* rpc, bool ok) {
+void Service::HandleWrite(RpcInterface* rpc, bool ok) {
   if (!ok) {
     LOG(ERROR) << "Write failed";
   }
@@ -125,7 +125,7 @@ void Service::HandleWrite(Rpc* rpc, bool ok) {
   RemoveIfNotPending(rpc);
 }
 
-void Service::HandleFinish(Rpc* rpc, bool ok) {
+void Service::HandleFinish(RpcInterface* rpc, bool ok) {
   if (!ok) {
     LOG(ERROR) << "Finish failed";
   }
@@ -135,9 +135,9 @@ void Service::HandleFinish(Rpc* rpc, bool ok) {
   RemoveIfNotPending(rpc);
 }
 
-void Service::HandleDone(Rpc* rpc, bool ok) { RemoveIfNotPending(rpc); }
+void Service::HandleDone(RpcInterface* rpc, bool ok) { RemoveIfNotPending(rpc); }
 
-void Service::RemoveIfNotPending(Rpc* rpc) {
+void Service::RemoveIfNotPending(RpcInterface* rpc) {
   if (!rpc->IsAnyEventPending()) {
     active_rpcs_.Remove(rpc);
   }

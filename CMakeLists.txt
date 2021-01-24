@@ -67,11 +67,13 @@ set(ALL_LIBRARY_HDRS
     async_grpc/completion_queue_pool.h
     async_grpc/completion_queue_thread.h
     async_grpc/event_queue_thread.h
+    async_grpc/events.h
     async_grpc/execution_context.h
     async_grpc/retry.h
     async_grpc/rpc.h
     async_grpc/rpc_handler_interface.h
     async_grpc/rpc_handler.h
+    async_grpc/rpc_interface.h
     async_grpc/rpc_service_method_traits.h
     async_grpc/server.h
     async_grpc/service.h
@@ -85,8 +87,8 @@ set(ALL_LIBRARY_SRCS
     async_grpc/completion_queue_pool.cc
     async_grpc/completion_queue_thread.cc
     async_grpc/event_queue_thread.cc
+    async_grpc/events.cc
     async_grpc/retry.cc
-    async_grpc/rpc.cc
     async_grpc/server.cc
     async_grpc/service.cc)
 

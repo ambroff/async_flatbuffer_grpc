@@ -99,17 +99,21 @@ class Server {
       rpc_handlers_[service_full_name].emplace(
           method_name,
           RpcHandlerInfo{
-              RequestType::default_instance().GetDescriptor(),
-              ResponseType::default_instance().GetDescriptor(),
-              [](Rpc* const rpc, ExecutionContext* const execution_context) {
-                std::unique_ptr<RpcHandlerInterface> rpc_handler =
-                    common::make_unique<RpcHandlerType>();
-                rpc_handler->SetRpc(rpc);
-                rpc_handler->SetExecutionContext(execution_context);
-                rpc_handler->Initialize();
-                return rpc_handler;
+              [](int method_index, ::grpc::ServerCompletionQueue* server_completion_queue,
+                 EventQueue* event_queue, ExecutionContext* execution_context,
+                 const RpcHandlerInfo& rpc_handler_info, Service* service,
+                 WeakPtrFactory weak_ptr_factory) {
+                return std::make_unique<Rpc<RpcHandlerType, Service, RequestType, ResponseType>>(
+                                      method_index,
+                                      server_completion_queue,
+                                      event_queue,
+                                      execution_context,
+                                      rpc_handler_info,
+                                      service,
+                                      weak_ptr_factory);
               },
-              RpcServiceMethod::StreamType, method_full_name});
+              RpcServiceMethod::StreamType,
+              method_full_name});
     }
     static std::tuple<std::string /* service_full_name */,
                       std::string /* method_name */>
@@ -195,8 +199,8 @@ class Server {
 
  private:
   void RunCompletionQueue(::grpc::ServerCompletionQueue* completion_queue);
-  void RunEventQueue(Rpc::EventQueue* event_queue);
-  Rpc::EventQueue* SelectNextEventQueueRoundRobin();
+  void RunEventQueue(EventQueue* event_queue);
+  EventQueue* SelectNextEventQueueRoundRobin();
 
   Options options_;
 

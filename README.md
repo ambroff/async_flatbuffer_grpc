@@ -1,6 +1,10 @@
 <div style="text-align:center"><img src ="gfx/logo.png" /></div>
 
-# Tiny C++ gRPC Server Framework
+# Tiny C++ gRPC+flatbuffers Server Framework
+
+This is a fork of the [cartographer-project/async_grpc](https://github.com/cartographer-project/async_grpc) project, modified to use flatbuffers instead of protocolbuffers. The changes required to support flatbuffers require such significant changes that it doesn't seem practical to merge them upstream.
+
+TODO: Update the docs below to replace the examples with flatbuffer schemas.
 
 ## Objective
 <a name="objective"></a>

@@ -1,5 +1,6 @@
 /*
  * Copyright 2017 The Cartographer Authors
+ * Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,47 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef CPP_GRPC_RPC_HANDLER_INTERFACE_H_
-#define CPP_GRPC_RPC_HANDLER_INTERFACE_H_
+#pragma once
 
 #include "async_grpc/common/make_unique.h"
 #include "async_grpc/execution_context.h"
 #include "async_grpc/span.h"
-#include "google/protobuf/message.h"
+#include "async_grpc/rpc_interface.h"
+
+#include <flatbuffers/grpc.h>
+
 #include "grpc++/grpc++.h"
 
 namespace async_grpc {
 
-class Rpc;
-class RpcHandlerInterface {
- public:
-  virtual ~RpcHandlerInterface() = default;
-  virtual void SetExecutionContext(ExecutionContext* execution_context) = 0;
-  virtual void SetRpc(Rpc* rpc) = 0;
-  virtual void Initialize(){};
-  virtual void OnRequestInternal(
-      const ::google::protobuf::Message* request) = 0;
-  virtual void OnReadsDone(){};
-  virtual void OnFinish(){};
-  virtual Span* trace_span() = 0;
-  template <class RpcHandlerType>
-  static std::unique_ptr<RpcHandlerType> Instantiate() {
-    return common::make_unique<RpcHandlerType>();
-  }
-};
+class RpcInterface;
 
-using RpcHandlerFactory = std::function<std::unique_ptr<RpcHandlerInterface>(
-    Rpc*, ExecutionContext*)>;
+struct RpcHandlerInfo;
+class Service;
+
+using RpcFactory = std::function<std::unique_ptr<RpcInterface>(
+    int,
+    ::grpc::ServerCompletionQueue*,
+    EventQueue*,
+    ExecutionContext*,
+    const RpcHandlerInfo& rpc_handler_info, Service* service,
+    WeakPtrFactory weak_ptr_factory)>;
 
 struct RpcHandlerInfo {
-  const google::protobuf::Descriptor* request_descriptor;
-  const google::protobuf::Descriptor* response_descriptor;
-  const RpcHandlerFactory rpc_handler_factory;
+  const RpcFactory rpc_factory;
   const ::grpc::internal::RpcMethod::RpcType rpc_type;
   const std::string fully_qualified_name;
 };
 
 }  // namespace async_grpc
-
-#endif  // CPP_GRPC_RPC_HANDLER_INTERFACE_H_
