@@ -37,24 +37,6 @@
 
 namespace async_grpc {
 
-namespace detail {
-
-// Finishes the gRPC for non-streaming response RPCs, i.e. NORMAL_RPC and
-// CLIENT_STREAMING. If no 'msg' is passed, we signal an error to the client as
-// the server is not honoring the gRPC call signature.
-template <typename ReaderWriter>
-void SendUnaryFinish(ReaderWriter* reader_writer, ::grpc::Status status,
-                     const google::protobuf::Message* msg,
-                     EventBase* rpc_event) {
-  if (msg) {
-    reader_writer->Finish(*msg, status, rpc_event);
-  } else {
-    reader_writer->FinishWithError(status, rpc_event);
-  }
-}
-
-}  // namespace detail
-
 // TODO(cschuet): Add a unittest that tests the logic of this class.
 template <typename HandlerType, typename ServiceType, typename RequestType,
           typename ResponseType>
@@ -324,14 +306,20 @@ class Rpc : public RpcInterface {
         server_async_reader_writer_->Finish(status, GetRpcEvent(Event::FINISH));
         break;
       case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
-        response_ = std::move(message.value());
-        SendUnaryFinish(server_async_reader_.get(), status, &response_,
-                        GetRpcEvent(Event::FINISH));
+        if (message) {
+          response_ = std::move(message.value());
+          server_async_reader_->Finish(response_, status, GetRpcEvent(Event::FINISH));
+        } else {
+          server_async_reader_->FinishWithError(status, GetRpcEvent(Event::FINISH));
+        }
         break;
       case ::grpc::internal::RpcMethod::NORMAL_RPC:
-        response_ = std::move(message.value());
-        SendUnaryFinish(server_async_response_writer_.get(), status,
-                        &response_, GetRpcEvent(Event::FINISH));
+        if (message) {
+          response_ = std::move(message.value());
+          server_async_reader_writer_->Finish(response_, status, GetRpcEvent(Event::FINISH));
+        } else {
+          server_async_reader_writer_->FinishWithError(status, GetRpcEvent(Event::FINISH));
+        }
         break;
       case ::grpc::internal::RpcMethod::SERVER_STREAMING:
         CHECK(!message);
@@ -348,7 +336,7 @@ class Rpc : public RpcInterface {
     CHECK_NE(rpc_handler_info_.rpc_type,
              ::grpc::internal::RpcMethod::CLIENT_STREAMING);
     SetRpcEventState(Event::WRITE, true);
-    response_ = std::move(message.get());
+    response_ = std::move(message.value());
     async_writer_interface()->Write(response_, GetRpcEvent(Event::WRITE));
   }
 
@@ -424,12 +412,12 @@ class Rpc : public RpcInterface {
       flatbuffers::grpc::Message<ResponseType>>>
       server_async_response_writer_;
   std::unique_ptr<
-      ::grpc::ServerAsyncReader<flatbuffers::grpc::Message<RequestType>,
-                                flatbuffers::grpc::Message<ResponseType>>>
+      ::grpc::ServerAsyncReader<flatbuffers::grpc::Message<ResponseType>,
+                                flatbuffers::grpc::Message<RequestType>>>
       server_async_reader_;
   std::unique_ptr<
-      ::grpc::ServerAsyncReaderWriter<flatbuffers::grpc::Message<RequestType>,
-                                      flatbuffers::grpc::Message<ResponseType>>>
+      ::grpc::ServerAsyncReaderWriter<flatbuffers::grpc::Message<ResponseType>,
+                                      flatbuffers::grpc::Message<RequestType>>>
       server_async_reader_writer_;
   std::unique_ptr<
       ::grpc::ServerAsyncWriter<flatbuffers::grpc::Message<ResponseType>>>
