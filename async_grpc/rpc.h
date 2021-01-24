@@ -62,17 +62,23 @@ class Rpc : public RpcInterface {
  public:
   // Flows only through our EventQueue.
   struct InternalRpcEvent : public EventBase {
-    InternalRpcEvent(Event event, std::weak_ptr<Rpc> rpc)
-        : EventBase{event}, rpc{std::move(rpc)} {}
+    InternalRpcEvent(Event event, std::weak_ptr<RpcInterface> rpc, ServiceType* service)
+        : EventBase{event},
+          rpc{std::move(rpc)},
+          service{service}
+    {
+    }
+
     void Handle() override {
       if (auto rpc_shared = rpc.lock()) {
-        rpc_shared->service()->HandleEvent(event, rpc_shared.get(), true);
+        service->HandleEvent(event, rpc_shared.get(), true);
       } else {
         LOG(WARNING) << "Ignoring stale event.";
       }
     }
 
-    std::weak_ptr<Rpc> rpc;
+    std::weak_ptr<RpcInterface> rpc;
+    ServiceType* service;
   };
 
   Rpc(int method_index, ::grpc::ServerCompletionQueue* server_completion_queue,
@@ -211,13 +217,13 @@ class Rpc : public RpcInterface {
   void Write(flatbuffers::grpc::Message<ResponseType> message) {
     EnqueueMessage(SendItem{std::move(message), ::grpc::Status::OK});
     event_queue_->Push(UniqueEventPtr(
-        new InternalRpcEvent(Event::WRITE_NEEDED, weak_ptr_factory_(this))));
+        new InternalRpcEvent(Event::WRITE_NEEDED, weak_ptr_factory_(this), service_)));
   }
 
   void Finish(::grpc::Status status) override {
     EnqueueMessage(SendItem{{}, status});
     event_queue_->Push(UniqueEventPtr(
-        new InternalRpcEvent(Event::WRITE_NEEDED, weak_ptr_factory_(this))));
+        new InternalRpcEvent(Event::WRITE_NEEDED, weak_ptr_factory_(this), service_)));
   }
 
   ServiceType* service() { return service_; }
@@ -318,7 +324,7 @@ class Rpc : public RpcInterface {
         server_async_reader_writer_->Finish(status, GetRpcEvent(Event::FINISH));
         break;
       case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
-        response_ = std::move(message.get());
+        response_ = std::move(message.value());
         SendUnaryFinish(server_async_reader_.get(), status, &response_,
                         GetRpcEvent(Event::FINISH));
         break;
