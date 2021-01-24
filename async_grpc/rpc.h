@@ -257,15 +257,15 @@ class Rpc : public RpcInterface {
         server_async_reader_writer_ =
             common::make_unique<
                 ::grpc::ServerAsyncReaderWriter<
-                    flatbuffers::grpc::Message<ResponseType>,
-                    flatbuffers::grpc::Message<RequestType>>>(
+                    flatbuffers::grpc::Message<RequestType>,
+                    flatbuffers::grpc::Message<ResponseType>>>(
                 &server_context_);
         break;
       case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
         server_async_reader_ = common::make_unique<
             ::grpc::ServerAsyncReader<
-                flatbuffers::grpc::Message<ResponseType>,
-                flatbuffers::grpc::Message<RequestType>>>(
+                flatbuffers::grpc::Message<RequestType>,
+                flatbuffers::grpc::Message<ResponseType>>>(
             &server_context_);
         break;
       case ::grpc::internal::RpcMethod::NORMAL_RPC:
