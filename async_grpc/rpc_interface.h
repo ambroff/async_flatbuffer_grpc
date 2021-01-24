@@ -22,6 +22,56 @@
 
 namespace async_grpc {
 
+enum class Event {
+  NEW_CONNECTION = 0,
+  READ,
+  WRITE_NEEDED,
+  WRITE,
+  FINISH,
+  DONE
+};
+
+class RpcInterface;
+
+class EventHandlerInterface {
+ public:
+  virtual ~EventHandlerInterface() = default;
+
+  virtual void HandleEvent(Event event, RpcInterface* rpc, bool ok) = 0;
+};
+
+class EventBase {
+ public:
+  explicit EventBase(Event event) : event(event) {}
+  virtual ~EventBase() = default;
+  virtual void Handle() = 0;
+
+ protected:
+  const Event event;
+};
+
+class EventDeleter {
+ public:
+  enum Action { DELETE = 0, DO_NOT_DELETE };
+
+  // The default action 'DELETE' is used implicitly, for instance for a
+  // new UniqueEventPtr or a UniqueEventPtr that is created by
+  // 'return nullptr'.
+  EventDeleter() : action_(DELETE) {}
+  explicit EventDeleter(Action action) : action_(action) {}
+  void operator()(EventBase* e) {
+    if (e != nullptr && action_ == DELETE) {
+      delete e;
+    }
+  }
+
+ private:
+  Action action_;
+};
+
+using UniqueEventPtr = std::unique_ptr<EventBase, EventDeleter>;
+using EventQueue = common::BlockingQueue<UniqueEventPtr>;
+
 class RpcInterface {
  public:
   virtual ~RpcInterface() = default;
@@ -33,6 +83,12 @@ class RpcInterface {
   virtual std::unique_ptr<RpcInterface> Clone() = 0;
 
   virtual void OnConnection() = 0;
+
+  virtual void OnRequest() = 0;
+
+  virtual void RequestStreamingReadIfNeeded() = 0;
+
+  virtual void OnReadsDone() = 0;
 
   virtual void Finish(::grpc::Status status) = 0;
 

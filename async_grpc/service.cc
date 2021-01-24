@@ -101,7 +101,7 @@ void Service::HandleNewConnection(RpcInterface* rpc, bool ok) {
   active_rpcs_.Add(std::move(new_rpc))->RequestNextMethodInvocation();
 }
 
-void Service::HandleRead(Rpc* rpc, bool ok) {
+void Service::HandleRead(RpcInterface* rpc, bool ok) {
   if (ok) {
     rpc->OnRequest();
     rpc->RequestStreamingReadIfNeeded();

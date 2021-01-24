@@ -1,4 +1,5 @@
 # Copyright 2018 The Cartographer Authors
+# Copyright 2021 Kyle Ambroff-Kao <kyle@ambroffkao.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -187,3 +188,25 @@ install(
   FILES ${PROJECT_BINARY_DIR}/cmake/async_grpc/async_grpc-config.cmake
   DESTINATION share/async_grpc/
 )
+
+find_program(CLANG_FORMAT_EXE
+  NAMES clang-format-11 clang-format-10 clang-format-8 clang-format
+  PATHS /usr/bin /usr/local/bin ${LISDK_INSTALL_ROOT}/bin
+  DOC "Path to clang-format executable."
+  )
+if (NOT CLANG_FORMAT_EXE)
+  message(STATUS "clang-format not found.")
+else()
+  message(STATUS "clang-format found: ${CLANG_FORMAT_EXE}")
+endif()
+
+if (CLANG_FORMAT_EXE)
+  file(GLOB_RECURSE ALL_H_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.h)
+  file(GLOB_RECURSE ALL_HPP_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.hpp)
+  file(GLOB_RECURSE ALL_HPP_INCLUDE_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.hpp.in)
+  file(GLOB_RECURSE ALL_CPP_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.cpp)
+  file(GLOB_RECURSE ALL_CC_FILES ${CMAKE_SOURCE_DIR}/async_grpc/*.cc)
+  set(ASYNC_GRPC_SOURCE_AND_HEADER_FILES
+    ${ALL_H_FILES} ${ALL_HPP_FILES} ${ALL_HPP_INCLUDE_FILES} ${ALL_CPP_FILES} ${ALL_CC_FILES})
+  add_custom_target(clang-format COMMAND ${CLANG_FORMAT_EXE} -i ${ASYNC_GRPC_SOURCE_AND_HEADER_FILES})
+endif()

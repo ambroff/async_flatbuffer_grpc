@@ -14,3 +14,30 @@
  * limitations under the License.
  */
 #include "async_grpc/events.h"
+
+namespace async_grpc {
+
+CompletionQueueRpcEvent::CompletionQueueRpcEvent(
+    async_grpc::Event event, async_grpc::EventQueue* event_queue,
+    async_grpc::EventHandlerInterface* event_handler,
+    async_grpc::RpcInterface* rpc)
+    : EventBase{event},
+      event_queue_{event_queue},
+      event_handler_{event_handler},
+      rpc_{rpc} {}
+
+void CompletionQueueRpcEvent::PushToEventQueue() {
+  event_queue_->Push(
+      UniqueEventPtr(this, EventDeleter(EventDeleter::DO_NOT_DELETE)));
+}
+
+void CompletionQueueRpcEvent::Handle() {
+  pending_ = false;
+  event_handler_->HandleEvent(event, rpc_, ok_);
+}
+
+void CompletionQueueRpcEvent::ok(bool ok) {
+  ok_ = ok;
+}
+
+}

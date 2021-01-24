@@ -132,8 +132,8 @@ void Server::RunCompletionQueue(
   bool ok;
   void* tag;
   while (completion_queue->Next(&tag, &ok)) {
-    auto* rpc_event = static_cast<Rpc::CompletionQueueRpcEvent*>(tag);
-    rpc_event->ok = ok;
+    auto* rpc_event = static_cast<CompletionQueueRpcEvent*>(tag);
+    rpc_event->ok(ok);
     rpc_event->PushToEventQueue();
   }
 }

@@ -20,82 +20,16 @@
 
 namespace async_grpc {
 
-enum class Event {
-  NEW_CONNECTION = 0,
-  READ,
-  WRITE_NEEDED,
-  WRITE,
-  FINISH,
-  DONE
-};
-
-class EventHandlerInterface {
- public:
-  virtual ~EventHandlerInterface() = default;
-
-  virtual void HandleEvent(Event event, RpcInterface* rpc, bool ok) = 0;
-};
-
-class EventBase {
- public:
-  explicit EventBase(Event event) : event(event) {}
-  virtual ~EventBase() = default;
-  virtual void Handle() = 0;
-
- protected:
-  const Event event;
-};
-
-class EventDeleter {
- public:
-  enum Action { DELETE = 0, DO_NOT_DELETE };
-
-  // The default action 'DELETE' is used implicitly, for instance for a
-  // new UniqueEventPtr or a UniqueEventPtr that is created by
-  // 'return nullptr'.
-  EventDeleter() : action_(DELETE) {}
-  explicit EventDeleter(Action action) : action_(action) {}
-  void operator()(EventBase* e) {
-    if (e != nullptr && action_ == DELETE) {
-      delete e;
-    }
-  }
-
- private:
-  Action action_;
-};
-
-using UniqueEventPtr = std::unique_ptr<EventBase, EventDeleter>;
-using EventQueue = common::BlockingQueue<UniqueEventPtr>;
-
 // Flows through gRPC's CompletionQueue and then our EventQueue.
 class CompletionQueueRpcEvent : public EventBase {
  public:
-  CompletionQueueRpcEvent(Event event, EventQueue* event_queue, EventHandlerInterface* event_handler, RpcInterface* rpc)
-      : EventBase{event},
-        event_queue_{event_queue},
-        event_handler_{event_handler},
-        rpc_{rpc}
-  {
-  }
+  CompletionQueueRpcEvent(Event event, EventQueue* event_queue, EventHandlerInterface* event_handler, RpcInterface* rpc);
 
-  void PushToEventQueue() {
-    event_queue_->Push(
-        UniqueEventPtr(this, EventDeleter(EventDeleter::DO_NOT_DELETE)));
-  }
+  void PushToEventQueue();
 
-  void Handle() override {
-    pending_ = false;
-    event_handler_->HandleEvent(event, rpc_, ok);
-  }
+  void Handle() override;
 
-  bool ok() const {
-    return ok_;
-  }
-
-  bool pending() const {
-    pending_;
-  }
+  void ok(bool ok);
 
  private:
   EventQueue* event_queue_;

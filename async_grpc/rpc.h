@@ -113,11 +113,11 @@ class Rpc : public RpcInterface {
     RequestStreamingReadIfNeeded();
   }
 
-  void OnRequest() {
+  void OnRequest() override {
     handler_->OnRequest(request_);
   }
 
-  void OnReadsDone() {
+  void OnReadsDone() override {
     handler_->OnReadsDone();
   }
 
@@ -163,7 +163,7 @@ class Rpc : public RpcInterface {
     }
   }
 
-  void RequestStreamingReadIfNeeded() {
+  void RequestStreamingReadIfNeeded() override {
     // For request-streaming RPCs ask the client to start sending requests.
     switch (rpc_handler_info_.rpc_type) {
       case ::grpc::internal::RpcMethod::BIDI_STREAMING:
