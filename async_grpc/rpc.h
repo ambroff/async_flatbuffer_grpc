@@ -301,7 +301,7 @@ class Rpc : public RpcInterface {
   void SetRpcEventState(Event event, bool pending) {
     // TODO(gaschler): Since the only usage is setting this true at creation,
     // consider removing this method.
-    return &GetRpcEvent(event)->pending(pending);
+    GetRpcEvent(event)->pending(pending);
   }
 
   void EnqueueMessage(SendItem&& send_item) {
@@ -319,13 +319,13 @@ class Rpc : public RpcInterface {
         break;
       case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
         response_ = std::move(message.get());
-        SendUnaryFinish(server_async_reader_.get(), status, response_.get(),
+        SendUnaryFinish(server_async_reader_.get(), status, &response_,
                         GetRpcEvent(Event::FINISH));
         break;
       case ::grpc::internal::RpcMethod::NORMAL_RPC:
-        response_ = std::move(message.get());
+        response_ = std::move(message.value());
         SendUnaryFinish(server_async_response_writer_.get(), status,
-                        response_.get(), GetRpcEvent(Event::FINISH));
+                        &response_, GetRpcEvent(Event::FINISH));
         break;
       case ::grpc::internal::RpcMethod::SERVER_STREAMING:
         CHECK(!message);

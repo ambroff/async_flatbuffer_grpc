@@ -51,6 +51,8 @@ class RpcHandler {
   using RequestType = typename RpcServiceMethod::RequestType;
   using ResponseType = typename RpcServiceMethod::ResponseType;
 
+  virtual ~RpcHandler() = default;
+
   class Writer {
    public:
     explicit Writer(std::weak_ptr<RpcInterface> rpc) : rpc_{std::move(rpc)} {}
