@@ -16,13 +16,12 @@
  */
 #pragma once
 
-#include "async_grpc/common/make_unique.h"
-#include "async_grpc/execution_context.h"
-#include "async_grpc/span.h"
-#include "async_grpc/rpc_interface.h"
-
 #include <flatbuffers/grpc.h>
 
+#include "async_grpc/common/make_unique.h"
+#include "async_grpc/execution_context.h"
+#include "async_grpc/rpc_interface.h"
+#include "async_grpc/span.h"
 #include "grpc++/grpc++.h"
 
 namespace async_grpc {
@@ -33,10 +32,7 @@ struct RpcHandlerInfo;
 class Service;
 
 using RpcFactory = std::function<std::unique_ptr<RpcInterface>(
-    int,
-    ::grpc::ServerCompletionQueue*,
-    EventQueue*,
-    ExecutionContext*,
+    int, ::grpc::ServerCompletionQueue*, EventQueue*, ExecutionContext*,
     const RpcHandlerInfo& rpc_handler_info, Service* service,
     WeakPtrFactory weak_ptr_factory)>;
 

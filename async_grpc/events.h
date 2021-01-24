@@ -23,7 +23,9 @@ namespace async_grpc {
 // Flows through gRPC's CompletionQueue and then our EventQueue.
 class CompletionQueueRpcEvent : public EventBase {
  public:
-  CompletionQueueRpcEvent(Event event, EventQueue* event_queue, EventHandlerInterface* event_handler, RpcInterface* rpc);
+  CompletionQueueRpcEvent(Event event, EventQueue* event_queue,
+                          EventHandlerInterface* event_handler,
+                          RpcInterface* rpc);
 
   void PushToEventQueue();
 
@@ -39,4 +41,4 @@ class CompletionQueueRpcEvent : public EventBase {
   bool pending_{false};
 };
 
-}
+}  // namespace async_grpc

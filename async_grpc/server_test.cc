@@ -23,13 +23,13 @@
 #include "async_grpc/async_client.h"
 #include "async_grpc/client.h"
 #include "async_grpc/execution_context.h"
-#include "math_service.grpc.fb.h"
 #include "async_grpc/retry.h"
 #include "async_grpc/rpc_handler.h"
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "grpc++/grpc++.h"
 #include "gtest/gtest.h"
+#include "math_service.grpc.fb.h"
 
 namespace async_grpc {
 namespace {
@@ -119,7 +119,8 @@ class GetSquareHandler : public RpcHandler<GetSquareMethod> {
     }
 
     flatbuffers::grpc::MessageBuilder builder;
-    auto response_offset = proto::CreateGetSquareResponse(builder, request.input() * request.input());
+    auto response_offset = proto::CreateGetSquareResponse(
+        builder, request.input() * request.input());
     builder.Finish(response_offset);
     Send(builder.ReleaseMessage<proto::GetSquareResponse>());
   }

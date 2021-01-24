@@ -36,8 +36,6 @@ void CompletionQueueRpcEvent::Handle() {
   event_handler_->HandleEvent(event, rpc_, ok_);
 }
 
-void CompletionQueueRpcEvent::ok(bool ok) {
-  ok_ = ok;
-}
+void CompletionQueueRpcEvent::ok(bool ok) { ok_ = ok; }
 
-}
+}  // namespace async_grpc

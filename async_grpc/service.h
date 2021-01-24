@@ -17,8 +17,8 @@
 #pragma once
 
 #include "async_grpc/completion_queue_thread.h"
-#include "async_grpc/events.h"
 #include "async_grpc/event_queue_thread.h"
+#include "async_grpc/events.h"
 #include "async_grpc/execution_context.h"
 #include "async_grpc/rpc.h"
 #include "async_grpc/rpc_handler.h"

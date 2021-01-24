@@ -23,13 +23,11 @@
 #include "async_grpc/retry.h"
 #include "async_grpc/rpc_handler_interface.h"
 #include "async_grpc/rpc_service_method_traits.h"
-
+#include "glog/logging.h"
 #include "grpc++/grpc++.h"
 #include "grpc++/impl/codegen/client_unary_call.h"
 #include "grpc++/impl/codegen/proto_utils.h"
 #include "grpc++/impl/codegen/sync_stream.h"
-
-#include "glog/logging.h"
 
 namespace async_grpc {
 
@@ -69,7 +67,8 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
         timeout_(timeout),
         retry_strategy_(std::move(retry_strategy)) {}
 
-  bool Write(flatbuffers::grpc::Message<RequestType> request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     common::optional<std::chrono::system_clock::time_point> deadline;
     if (timeout_.has_value()) {
@@ -89,7 +88,9 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
     return result;
   }
 
-  const flatbuffers::grpc::Message<ResponseType>& response() { return response_; }
+  const flatbuffers::grpc::Message<ResponseType>& response() {
+    return response_;
+  }
 
  private:
   static std::unique_ptr<::grpc::ClientContext> ResetContext(
@@ -101,15 +102,17 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
     return context;
   }
 
-  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request, ::grpc::Status* status) {
+  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request,
+                 ::grpc::Status* status) {
     auto status_normal_rpc = MakeBlockingUnaryCall(request, &response_);
     if (status != nullptr) {
       *status = status_normal_rpc;
     }
     return status_normal_rpc.ok();
   }
-  ::grpc::Status MakeBlockingUnaryCall(const flatbuffers::grpc::Message<RequestType>& request,
-                                       flatbuffers::grpc::Message<ResponseType>* response) {
+  ::grpc::Status MakeBlockingUnaryCall(
+      const flatbuffers::grpc::Message<RequestType>& request,
+      flatbuffers::grpc::Message<ResponseType>* response) {
     return ::grpc::internal::BlockingUnaryCall(
         channel_.get(), rpc_method_, client_context_.get(), request, response);
   }
@@ -139,7 +142,8 @@ class Client<RpcServiceMethodConcept,
         rpc_method_(rpc_method_name_.c_str(), RpcServiceMethod::StreamType,
                     channel_) {}
 
-  bool Write(flatbuffers::grpc::Message<RequestType> request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     WriteImpl(request, &internal_status);
     if (status != nullptr) {
@@ -203,7 +207,8 @@ class Client<RpcServiceMethodConcept,
     return client_reader_->Read(response);
   }
 
-  bool Write(const flatbuffers::grpc::Message<RequestType>& request, ::grpc::Status* status = nullptr) {
+  bool Write(const flatbuffers::grpc::Message<RequestType>& request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     WriteImpl(request, &internal_status);
     if (status != nullptr) {
@@ -218,12 +223,14 @@ class Client<RpcServiceMethodConcept,
   }
 
  private:
-  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request, ::grpc::Status* status) {
+  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request,
+                 ::grpc::Status* status) {
     InstantiateClientReader(request);
     return true;
   }
 
-  void InstantiateClientReader(const flatbuffers::grpc::Message<RequestType>& request) {
+  void InstantiateClientReader(
+      const flatbuffers::grpc::Message<RequestType>& request) {
     client_reader_.reset(
         ::grpc::internal::ClientReaderFactory<ResponseType>::Create(
             channel_.get(), rpc_method_, client_context_.get(), request));
@@ -257,7 +264,8 @@ class Client<RpcServiceMethodConcept,
     return client_reader_writer_->Read(response);
   }
 
-  bool Write(flatbuffers::grpc::Message<RequestType> request, ::grpc::Status* status = nullptr) {
+  bool Write(flatbuffers::grpc::Message<RequestType> request,
+             ::grpc::Status* status = nullptr) {
     ::grpc::Status internal_status;
     WriteImpl(request, &internal_status);
     if (status != nullptr) {

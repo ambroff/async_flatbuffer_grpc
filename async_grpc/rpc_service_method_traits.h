@@ -54,14 +54,13 @@ struct RpcServiceMethodTraits {
   using ResponseType =
       StripStream<typename RpcServiceMethodConcept::OutgoingType>;
 
-  static_assert(
-      std::is_base_of<::flatbuffers::Table, RequestType>::value,
-      "The RPC request type must be derived from ::flatbuffers::grpc::Message.");
+  static_assert(std::is_base_of<::flatbuffers::Table, RequestType>::value,
+                "The RPC request type must be derived from "
+                "::flatbuffers::grpc::Message.");
 
-  static_assert(
-      std::is_base_of<::flatbuffers::Table, ResponseType>::value,
-      "The RPC response type must be derived from "
-      "::flatbuffers::grpc::Message.");
+  static_assert(std::is_base_of<::flatbuffers::Table, ResponseType>::value,
+                "The RPC response type must be derived from "
+                "::flatbuffers::grpc::Message.");
 
   // The streaming type of the service method. See also
   // ::grpc::internal::RpcMethod.

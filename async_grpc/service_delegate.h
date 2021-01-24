@@ -17,8 +17,6 @@
 
 namespace async_grpc {
 
-class ServiceDelegate {
+class ServiceDelegate {};
 
-};
-
-}
+}  // namespace async_grpc

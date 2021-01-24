@@ -16,11 +16,11 @@
 
 #include "async_grpc/client.h"
 
-#include "math_service.grpc.fb.h"
 #include "async_grpc/retry.h"
 #include "glog/logging.h"
 #include "grpc++/grpc++.h"
 #include "gtest/gtest.h"
+#include "math_service.grpc.fb.h"
 
 namespace async_grpc {
 namespace {

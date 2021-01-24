@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "async_grpc/server.h"
-
 #include <cstdlib>
 
+#include "async_grpc/server.h"
 #include "glog/logging.h"
 #include "grpc++/impl/codegen/proto_utils.h"
 
@@ -43,10 +42,11 @@ void Service::StartServing(
   int i = 0;
   for (const auto& rpc_handler_info : rpc_handler_infos_) {
     for (auto& completion_queue_thread : completion_queue_threads) {
-      std::shared_ptr<RpcInterface> rpc = active_rpcs_.Add(rpc_handler_info.second.rpc_factory(
-          i, completion_queue_thread.completion_queue(),
-          event_queue_selector_(), execution_context, rpc_handler_info.second,
-          this, active_rpcs_.GetWeakPtrFactory()));
+      std::shared_ptr<RpcInterface> rpc =
+          active_rpcs_.Add(rpc_handler_info.second.rpc_factory(
+              i, completion_queue_thread.completion_queue(),
+              event_queue_selector_(), execution_context,
+              rpc_handler_info.second, this, active_rpcs_.GetWeakPtrFactory()));
       rpc->RequestNextMethodInvocation();
     }
     ++i;
@@ -135,7 +135,9 @@ void Service::HandleFinish(RpcInterface* rpc, bool ok) {
   RemoveIfNotPending(rpc);
 }
 
-void Service::HandleDone(RpcInterface* rpc, bool ok) { RemoveIfNotPending(rpc); }
+void Service::HandleDone(RpcInterface* rpc, bool ok) {
+  RemoveIfNotPending(rpc);
+}
 
 void Service::RemoveIfNotPending(RpcInterface* rpc) {
   if (!rpc->IsAnyEventPending()) {

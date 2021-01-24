@@ -15,10 +15,10 @@
  */
 #pragma once
 
+#include <grpcpp/support/status.h>
+
 #include <functional>
 #include <memory>
-
-#include <grpcpp/support/status.h>
 
 namespace async_grpc {
 
@@ -76,7 +76,7 @@ class RpcInterface {
  public:
   virtual ~RpcInterface() = default;
 
-  virtual void RequestNextMethodInvocation()  = 0;
+  virtual void RequestNextMethodInvocation() = 0;
 
   virtual std::weak_ptr<RpcInterface> GetWeakPtr() = 0;
 
@@ -101,6 +101,7 @@ class RpcInterface {
   virtual void HandleSendQueue() = 0;
 };
 
-using WeakPtrFactory = std::function<std::weak_ptr<RpcInterface>(RpcInterface*)>;
+using WeakPtrFactory =
+    std::function<std::weak_ptr<RpcInterface>(RpcInterface*)>;
 
 }  // namespace async_grpc

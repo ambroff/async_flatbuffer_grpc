@@ -16,9 +16,9 @@
  */
 #pragma once
 
-#include <functional>
-
 #include <flatbuffers/grpc.h>
+
+#include <functional>
 
 namespace async_grpc::testing {
 
@@ -31,7 +31,9 @@ class RpcHandlerWrapper : public RpcHandlerType {
   RpcHandlerWrapper(EventCallback event_callback)
       : event_callback_(event_callback) {}
 
-  void OnRequest(const flatbuffers::grpc::Message<typename RpcHandlerType::RequestType> &request) override {
+  void OnRequest(
+      const flatbuffers::grpc::Message<typename RpcHandlerType::RequestType>&
+          request) override {
     RpcHandlerType::OnRequest(request);
     event_callback_(ON_REQUEST);
   }
