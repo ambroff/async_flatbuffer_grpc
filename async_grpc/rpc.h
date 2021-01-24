@@ -122,25 +122,25 @@ class Rpc : public RpcInterface {
     SetRpcEventState(Event::NEW_CONNECTION, true);
     switch (rpc_handler_info_.rpc_type) {
       case ::grpc::internal::RpcMethod::BIDI_STREAMING:
-        service_->RequestAsyncBidiStreaming(
+        service_->DoRequestAsyncBidiStreaming(
             method_index_, &server_context_, streaming_interface(),
             server_completion_queue_, server_completion_queue_,
             GetRpcEvent(Event::NEW_CONNECTION));
         break;
       case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
-        service_->RequestAsyncClientStreaming(
+        service_->DoRequestAsyncClientStreaming(
             method_index_, &server_context_, streaming_interface(),
             server_completion_queue_, server_completion_queue_,
             GetRpcEvent(Event::NEW_CONNECTION));
         break;
       case ::grpc::internal::RpcMethod::NORMAL_RPC:
-        service_->RequestAsyncUnary(
+        service_->DoRequestAsyncUnary(
             method_index_, &server_context_, &request_,
             streaming_interface(), server_completion_queue_,
             server_completion_queue_, GetRpcEvent(Event::NEW_CONNECTION));
         break;
       case ::grpc::internal::RpcMethod::SERVER_STREAMING:
-        service_->RequestAsyncServerStreaming(
+        service_->DoRequestAsyncServerStreaming(
             method_index_, &server_context_, &request_,
             streaming_interface(), server_completion_queue_,
             server_completion_queue_, GetRpcEvent(Event::NEW_CONNECTION));
@@ -248,15 +248,15 @@ class Rpc : public RpcInterface {
         server_async_reader_writer_ =
             common::make_unique<
                 ::grpc::ServerAsyncReaderWriter<
-                    flatbuffers::grpc::Message<RequestType>,
-                    flatbuffers::grpc::Message<ResponseType>>>(
+                    flatbuffers::grpc::Message<ResponseType>,
+                    flatbuffers::grpc::Message<RequestType>>>(
                 &server_context_);
         break;
       case ::grpc::internal::RpcMethod::CLIENT_STREAMING:
         server_async_reader_ = common::make_unique<
             ::grpc::ServerAsyncReader<
-                flatbuffers::grpc::Message<RequestType>,
-                flatbuffers::grpc::Message<ResponseType>>>(
+                flatbuffers::grpc::Message<ResponseType>,
+                flatbuffers::grpc::Message<RequestType>>>(
             &server_context_);
         break;
       case ::grpc::internal::RpcMethod::NORMAL_RPC:
@@ -319,9 +319,9 @@ class Rpc : public RpcInterface {
       case ::grpc::internal::RpcMethod::NORMAL_RPC:
         if (message) {
           response_ = std::move(message.value());
-          server_async_reader_writer_->Finish(response_, status, GetRpcEvent(Event::FINISH));
+          server_async_response_writer_->Finish(response_, status, GetRpcEvent(Event::FINISH));
         } else {
-          server_async_reader_writer_->FinishWithError(status, GetRpcEvent(Event::FINISH));
+          server_async_response_writer_->FinishWithError(status, GetRpcEvent(Event::FINISH));
         }
         break;
       case ::grpc::internal::RpcMethod::SERVER_STREAMING:

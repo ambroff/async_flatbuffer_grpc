@@ -42,6 +42,26 @@ class Service : public ::grpc::Service, public EventHandlerInterface {
   void HandleEvent(Event event, RpcInterface* rpc, bool ok) override;
   void StopServing();
 
+  template <typename... Args>
+  void DoRequestAsyncUnary(Args... args) {
+    RequestAsyncUnary(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  void DoRequestAsyncServerStreaming(Args... args) {
+    RequestAsyncServerStreaming(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  void DoRequestAsyncClientStreaming(Args... args) {
+    RequestAsyncClientStreaming(std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  void DoRequestAsyncBidiStreaming(Args... args) {
+    RequestAsyncBidiStreaming(std::forward<Args>(args)...);
+  }
+
  private:
   void HandleNewConnection(RpcInterface* rpc, bool ok);
   void HandleRead(RpcInterface* rpc, bool ok);

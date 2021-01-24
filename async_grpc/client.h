@@ -165,7 +165,7 @@ class Client<RpcServiceMethodConcept,
   const ResponseType& response() { return response_; }
 
  private:
-  bool WriteImpl(const RequestType& request, ::grpc::Status* status) {
+  bool WriteImpl(flatbuffers::grpc::Message<RequestType>& request, ::grpc::Status* status) {
     InstantiateClientWriterIfNeeded();
     return client_writer_->Write(request);
   }
@@ -184,7 +184,7 @@ class Client<RpcServiceMethodConcept,
   const ::grpc::internal::RpcMethod rpc_method_;
 
   std::unique_ptr<::grpc::ClientWriter<RequestType>> client_writer_;
-  ResponseType response_;
+  flatbuffers::grpc::Message<ResponseType> response_;
 };
 
 template <typename RpcServiceMethodConcept>
