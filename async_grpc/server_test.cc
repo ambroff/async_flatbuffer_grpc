@@ -227,7 +227,7 @@ TEST_F(ServerTest, ProcessUnaryRpcTest) {
   auto request_offset = proto::CreateGetSquareRequest(builder, 11);
   builder.Finish(request_offset);
   EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetSquareRequest>()));
-  EXPECT_EQ(client.response().output(), 121);
+  EXPECT_EQ(client.response().GetRoot()->output(), 121);
 }
 
 TEST_F(ServerTest, ProcessBidiStreamingRpcTest) {
@@ -268,7 +268,7 @@ TEST_F(ServerTest, WriteFromOtherThread) {
     EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetEchoRequest>()));
   }
   response_thread.join();
-  EXPECT_EQ(client.response().output(), 13);
+  EXPECT_EQ(client.response().GetRoot()->output(), 13);
 }
 
 TEST_F(ServerTest, ProcessServerStreamingRpcTest) {

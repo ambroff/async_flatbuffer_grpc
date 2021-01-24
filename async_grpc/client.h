@@ -89,7 +89,7 @@ class Client<RpcServiceMethodConcept, ::grpc::internal::RpcMethod::NORMAL_RPC> {
     return result;
   }
 
-  const ResponseType& response() { return response_; }
+  const flatbuffers::grpc::Message<ResponseType>& response() { return response_; }
 
  private:
   static std::unique_ptr<::grpc::ClientContext> ResetContext(
