@@ -64,6 +64,9 @@ class Server {
   };
 
  public:
+  Server(const Server&) = delete;
+  Server& operator=(const Server&) = delete;
+
   // This 'Builder' is the only way to construct a 'Server'.
   class Builder {
    public:
@@ -190,8 +193,6 @@ class Server {
       const std::map<std::string, RpcHandlerInfo>& rpc_handler_infos);
 
  private:
-  Server(const Server&) = delete;
-  Server& operator=(const Server&) = delete;
   void RunCompletionQueue(::grpc::ServerCompletionQueue* completion_queue);
   void RunEventQueue(Rpc::EventQueue* event_queue);
   Rpc::EventQueue* SelectNextEventQueueRoundRobin();
@@ -210,7 +211,7 @@ class Server {
   // Threads processing RPC events.
   std::vector<EventQueueThread> event_queue_threads_;
   common::Mutex current_event_queue_id_lock_;
-  int current_event_queue_id_ = 0;
+  std::size_t current_event_queue_id_ = 0;
 
   // Map of service names to services.
   std::map<std::string, Service> services_;
