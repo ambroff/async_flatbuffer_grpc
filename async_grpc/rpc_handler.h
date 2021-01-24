@@ -22,7 +22,6 @@
 #include "async_grpc/rpc_service_method_traits.h"
 #include "async_grpc/span.h"
 #include "glog/logging.h"
-#include "google/protobuf/message.h"
 #include "grpc++/grpc++.h"
 #if BUILD_TRACING
 #include "async_grpc/opencensus_span.h"

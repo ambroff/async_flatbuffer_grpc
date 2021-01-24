@@ -44,12 +44,12 @@ struct RpcServiceMethodTraits {
     return RpcServiceMethodConcept::MethodName();
   }
 
-  // An object derived from ::google::protobuf::Message which is passed to a
+  // An object derived from ::flatbuffers::Table which is passed to a
   // specific service method.
   using RequestType =
       StripStream<typename RpcServiceMethodConcept::IncomingType>;
 
-  // An object derived from ::google::protobuf::Message which is returned from a
+  // An object derived from ::flatbuffers::Table which is returned from a
   // specific service method.
   using ResponseType =
       StripStream<typename RpcServiceMethodConcept::OutgoingType>;

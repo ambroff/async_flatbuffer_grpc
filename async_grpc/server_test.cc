@@ -26,7 +26,6 @@
 #include "async_grpc/retry.h"
 #include "async_grpc/rpc_handler.h"
 #include "glog/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "grpc++/grpc++.h"
 #include "gtest/gtest.h"
 #include "math_service.grpc.fb.h"
