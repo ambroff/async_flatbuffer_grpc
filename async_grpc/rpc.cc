@@ -264,7 +264,7 @@ bool* Rpc::GetRpcEventState(Event event) {
 
 void Rpc::EnqueueMessage(SendItem&& send_item) {
   common::MutexLocker locker(&send_queue_lock_);
-  send_queue_.emplace(std::move(send_item));
+  send_queue_.emplace(std::forward<SendItem>(send_item));
 }
 
 void Rpc::PerformFinish(std::unique_ptr<::google::protobuf::Message> message,

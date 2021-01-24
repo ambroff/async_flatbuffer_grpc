@@ -20,6 +20,7 @@
 #include <memory>
 #include <queue>
 #include <unordered_set>
+#include <utility>
 
 #include "async_grpc/common/blocking_queue.h"
 #include "async_grpc/common/mutex.h"
@@ -96,7 +97,7 @@ class Rpc {
   // Flows only through our EventQueue.
   struct InternalRpcEvent : public EventBase {
     InternalRpcEvent(Event event, std::weak_ptr<Rpc> rpc)
-        : EventBase(event), rpc(rpc) {}
+        : EventBase{event}, rpc{std::move(rpc)} {}
     void Handle() override;
 
     std::weak_ptr<Rpc> rpc;

@@ -26,10 +26,6 @@ namespace async_grpc {
 namespace {
 
 const common::Duration kPopEventTimeout = common::FromMilliseconds(100);
-constexpr unsigned int kDefaultTracingMaxAttributes = 128;
-constexpr unsigned int kDefaultTracingMaxAnnotations = 128;
-constexpr unsigned int kDefaultTracingMaxMessageEvents = 128;
-constexpr unsigned int kDefaultTracingMaxLinks = 128;
 
 }  // namespace
 
