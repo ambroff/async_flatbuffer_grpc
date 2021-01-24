@@ -33,6 +33,12 @@ class CompletionQueueRpcEvent : public EventBase {
 
   void ok(bool ok);
 
+  void pending(bool pending);
+
+  [[nodiscard]] bool ok() const;
+
+  [[nodiscard]] bool pending() const;
+
  private:
   EventQueue* event_queue_;
   EventHandlerInterface* event_handler_;

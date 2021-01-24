@@ -18,7 +18,7 @@
 
 #include "async_grpc/execution_context.h"
 #include "async_grpc/rpc.h"
-#include "async_grpc/rpc_handler_interface.h"
+#include "async_grpc/rpc_handler_info.h"
 #include "async_grpc/rpc_service_method_traits.h"
 #include "async_grpc/span.h"
 #include "glog/logging.h"
@@ -43,7 +43,7 @@ class RpcHandler {
 
     bool Write(flatbuffers::grpc::Message<ResponseType> message) const {
       if (auto rpc = rpc_.lock()) {
-        rpc->Write(std::move(message));
+        rpc->Write(std::make_any<flatbuffers::grpc::Message<ResponseType>>(std::move(message)));
         return true;
       }
       return false;
@@ -90,6 +90,8 @@ class RpcHandler {
 
   virtual void SetRpc(RpcInterface* rpc) { rpc_ = rpc; }
 
+  virtual void Initialize() {}
+
   virtual void OnRequest(const RequestType& request) = 0;
 
   void Finish(::grpc::Status status) {
@@ -100,7 +102,7 @@ class RpcHandler {
   }
 
   void Send(flatbuffers::grpc::Message<ResponseType> response) {
-    rpc_->Write(std::move(response));
+    rpc_->Write(std::make_any<flatbuffers::grpc::Message<ResponseType>>(std::move(response)));
   }
 
   template <typename T>
@@ -114,6 +116,8 @@ class RpcHandler {
   }
 
   Writer GetWriter() { return Writer(rpc_->GetWeakPtr()); }
+
+  virtual void OnReadsDone() {}
 
  private:
   RpcInterface* rpc_;

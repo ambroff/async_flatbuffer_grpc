@@ -225,6 +225,8 @@ class Server {
   // A context object that is shared between all implementations of
   // 'RpcHandler'.
   std::unique_ptr<ExecutionContext> execution_context_;
+
+  friend class RpcInterface;
 };
 
 }  // namespace async_grpc

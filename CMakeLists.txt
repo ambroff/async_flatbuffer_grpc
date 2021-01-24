@@ -72,7 +72,7 @@ set(ALL_LIBRARY_HDRS
     async_grpc/execution_context.h
     async_grpc/retry.h
     async_grpc/rpc.h
-    async_grpc/rpc_handler_interface.h
+    async_grpc/rpc_handler_info.h
     async_grpc/rpc_handler.h
     async_grpc/rpc_interface.h
     async_grpc/rpc_service_method_traits.h

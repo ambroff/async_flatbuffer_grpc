@@ -27,7 +27,7 @@
 #include "async_grpc/common/mutex.h"
 #include "async_grpc/events.h"
 #include "async_grpc/execution_context.h"
-#include "async_grpc/rpc_handler_interface.h"
+#include "async_grpc/rpc_handler_info.h"
 #include "async_grpc/rpc_interface.h"
 #include "grpc++/grpc++.h"
 #include "grpc++/impl/codegen/async_stream.h"
@@ -85,12 +85,12 @@ class Rpc : public RpcInterface {
         execution_context_(execution_context),
         rpc_handler_info_(rpc_handler_info),
         service_{service},
-        weak_ptr_factory_(weak_ptr_factory),
-        new_connection_event_(Event::NEW_CONNECTION, this),
-        read_event_(Event::READ, this),
-        write_event_(Event::WRITE, this),
-        finish_event_(Event::FINISH, this),
-        done_event_(Event::DONE, this) {
+        weak_ptr_factory_{std::move(weak_ptr_factory)},
+        new_connection_event_(Event::NEW_CONNECTION, event_queue, service, this),
+        read_event_(Event::READ, event_queue, service, this),
+        write_event_(Event::WRITE, event_queue, service, this),
+        finish_event_(Event::FINISH, event_queue, service, this),
+        done_event_(Event::DONE, event_queue, service, this) {
     InitializeReadersAndWriters(rpc_handler_info_.rpc_type);
   }
 
@@ -106,7 +106,9 @@ class Rpc : public RpcInterface {
 
   void OnConnection() override {
     if (!handler_) {
-      handler_ = std::make_unique<HandlerType>(this, execution_context_);
+      handler_ = std::make_unique<HandlerType>();
+      handler_->SetRpc(this);
+      handler_->SetExecutionContext(execution_context_);
       handler_->Initialize();
     }
 
@@ -202,6 +204,10 @@ class Rpc : public RpcInterface {
     PerformWrite(std::move(send_item.msg), send_item.status);
   }
 
+  void Write(std::any message) override {
+    Write(std::move(std::any_cast<flatbuffers::grpc::Message<ResponseType>>(message)));
+  }
+
   void Write(flatbuffers::grpc::Message<ResponseType> message) {
     EnqueueMessage(SendItem{std::move(message), ::grpc::Status::OK});
     event_queue_->Push(UniqueEventPtr(
@@ -216,7 +222,9 @@ class Rpc : public RpcInterface {
 
   ServiceType* service() { return service_; }
 
-  bool IsRpcEventPending(Event event) { return *GetRpcEventState(event); }
+  bool IsRpcEventPending(Event event) {
+    return GetRpcEvent(event)->pending();
+  }
 
   bool IsAnyEventPending() override {
     return IsRpcEventPending(Event::DONE) || IsRpcEventPending(Event::READ) ||
@@ -288,12 +296,10 @@ class Rpc : public RpcInterface {
     LOG(FATAL) << "Never reached.";
   }
 
-  bool* GetRpcEventState(Event event) { return &GetRpcEvent(event)->pending; }
-
   void SetRpcEventState(Event event, bool pending) {
     // TODO(gaschler): Since the only usage is setting this true at creation,
     // consider removing this method.
-    *GetRpcEventState(event) = pending;
+    return &GetRpcEvent(event)->pending(pending);
   }
 
   void EnqueueMessage(SendItem&& send_item) {

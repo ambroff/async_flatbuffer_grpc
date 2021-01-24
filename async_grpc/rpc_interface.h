@@ -15,10 +15,13 @@
  */
 #pragma once
 
-#include <grpcpp/support/status.h>
-
+#include <any>
 #include <functional>
 #include <memory>
+
+#include <grpcpp/support/status.h>
+
+#include "async_grpc/common/blocking_queue.h"
 
 namespace async_grpc {
 
@@ -89,6 +92,9 @@ class RpcInterface {
   virtual void RequestStreamingReadIfNeeded() = 0;
 
   virtual void OnReadsDone() = 0;
+
+  // KWA FIXME: This is gross. Gotta find another type-erasure method for this.
+  virtual void Write(std::any message) = 0;
 
   virtual void Finish(::grpc::Status status) = 0;
 

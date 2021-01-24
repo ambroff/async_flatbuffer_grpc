@@ -22,7 +22,7 @@
 
 #include "async_grpc/client.h"
 #include "async_grpc/common/blocking_queue.h"
-#include "async_grpc/rpc_handler_interface.h"
+#include "async_grpc/rpc_handler_info.h"
 #include "async_grpc/server.h"
 #include "async_grpc/testing/rpc_handler_wrapper.h"
 #include "grpc++/grpc++.h"

@@ -21,7 +21,7 @@
 
 #include "async_grpc/common/optional.h"
 #include "async_grpc/retry.h"
-#include "async_grpc/rpc_handler_interface.h"
+#include "async_grpc/rpc_handler_info.h"
 #include "async_grpc/rpc_service_method_traits.h"
 #include "glog/logging.h"
 #include "grpc++/grpc++.h"

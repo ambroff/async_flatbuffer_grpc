@@ -38,4 +38,16 @@ void CompletionQueueRpcEvent::Handle() {
 
 void CompletionQueueRpcEvent::ok(bool ok) { ok_ = ok; }
 
+void CompletionQueueRpcEvent::pending(bool pending) {
+  pending_ = pending;
+}
+
+bool CompletionQueueRpcEvent::ok() const {
+  return ok_;
+}
+
+bool CompletionQueueRpcEvent::pending() const {
+  return pending_;
+}
+
 }  // namespace async_grpc
