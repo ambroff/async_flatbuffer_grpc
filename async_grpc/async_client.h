@@ -68,7 +68,7 @@ class AsyncClient<RpcServiceMethodConcept,
                     channel_),
         finish_event_(CompletionQueue::ClientEvent::Event::FINISH, this) {}
 
-  void WriteAsync(const RequestType& request) {
+  void WriteAsync(const flatbuffers::grpc::Message<RequestType>& request) {
     response_reader_ =
         std::unique_ptr<::grpc::ClientAsyncResponseReader<ResponseType>>(
             ::grpc::internal::ClientAsyncResponseReaderFactory<
@@ -131,7 +131,7 @@ class AsyncClient<RpcServiceMethodConcept,
         read_event_(CompletionQueue::ClientEvent::Event::READ, this),
         finish_event_(CompletionQueue::ClientEvent::Event::FINISH, this) {}
 
-  void WriteAsync(const RequestType& request) {
+  void WriteAsync(const flatbuffers::grpc::Message<RequestType>& request) {
     // Start the call.
     response_reader_ = std::unique_ptr<::grpc::ClientAsyncReader<ResponseType>>(
         ::grpc::internal::ClientAsyncReaderFactory<ResponseType>::Create(

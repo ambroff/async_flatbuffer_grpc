@@ -261,25 +261,33 @@ TEST_F(ServerTest, WriteFromOtherThread) {
   });
 
   Client<GetEchoMethod> client(client_channel_);
-  proto::GetEchoRequest request;
-  request.set_input(13);
-  EXPECT_TRUE(client.Write(request));
+  {
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetEchoRequest(builder, 13);
+    builder.Finish(request_offset);
+    EXPECT_TRUE(client.Write(builder.ReleaseMessage<proto::GetEchoRequest>()));
+  }
   response_thread.join();
   EXPECT_EQ(client.response().output(), 13);
 }
 
 TEST_F(ServerTest, ProcessServerStreamingRpcTest) {
   Client<GetSequenceMethod> client(client_channel_);
-  proto::GetSequenceRequest request;
-  request.set_input(12);
-
-  client.Write(request);
-  proto::GetSequenceResponse response;
-  for (int i = 0; i < 12; ++i) {
-    EXPECT_TRUE(client.StreamRead(&response));
-    EXPECT_EQ(response.output(), i);
+  {
+    flatbuffers::grpc::MessageBuilder builder;
+    auto request_offset = proto::CreateGetSequenceRequest(builder, 12);
+    builder.Finish(request_offset);
+    client.Write(builder.ReleaseMessage<proto::GetSequenceRequest>());
   }
-  EXPECT_FALSE(client.StreamRead(&response));
+
+  for (int i = 0; i < 12; ++i) {
+    flatbuffers::grpc::Message<proto::GetSequenceResponse> response;
+    EXPECT_TRUE(client.StreamRead(&response));
+    EXPECT_EQ(response.GetRoot()->output(), i);
+  }
+
+  flatbuffers::grpc::Message<proto::GetSequenceResponse> final_response;
+  EXPECT_FALSE(client.StreamRead(&final_response));
   EXPECT_TRUE(client.StreamFinish().ok());
 }
 
@@ -292,7 +300,7 @@ TEST_F(ServerTest, RetryWithUnrecoverableError) {
   flatbuffers::grpc::MessageBuilder builder;
   auto request_offset = proto::CreateGetSquareRequest(builder, -11);
   builder.Finish(request_offset);
-  EXPECT_FALSE(builder.ReleaseMessage<proto::GetSquareRequest>());
+  EXPECT_FALSE(client.Write(builder.ReleaseMessage<proto::GetSquareRequest>()));
 }
 
 TEST_F(ServerTest, AsyncClientUnary) {
@@ -312,9 +320,11 @@ TEST_F(ServerTest, AsyncClientUnary) {
         }
         cv.notify_all();
       });
-  proto::GetSquareRequest request;
-  request.set_input(11);
-  async_client.WriteAsync(request);
+
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSquareRequest(builder, 11);
+  builder.Finish(request_offset);
+  async_client.WriteAsync(builder.ReleaseMessage<proto::GetSquareRequest>());
 
   std::unique_lock<std::mutex> lock(m);
   cv.wait(lock, [&done] { return done; });
@@ -331,7 +341,6 @@ TEST_F(ServerTest, AsyncClientServerStreaming) {
       [&done, &m, &cv, &counter](const ::grpc::Status& status,
                                  const proto::GetSequenceResponse* response) {
         LOG(INFO) << status.error_code() << " " << status.error_message();
-        LOG(INFO) << (response ? response->DebugString() : "(nullptr)");
         EXPECT_TRUE(status.ok());
 
         if (!response) {
@@ -344,8 +353,11 @@ TEST_F(ServerTest, AsyncClientServerStreaming) {
           EXPECT_EQ(response->output(), counter++);
         }
       });
-  proto::GetSequenceRequest request;
-  request.set_input(10);
+
+  flatbuffers::grpc::MessageBuilder builder;
+  auto request_offset = proto::CreateGetSequenceRequest(builder, 10);
+  builder.Finish(request_offset);
+  auto request = builder.ReleaseMessage<proto::GetSequenceRequest>();
   async_client.WriteAsync(request);
 
   std::unique_lock<std::mutex> lock(m);
