@@ -121,7 +121,7 @@ class AsyncClient<RpcServiceMethodConcept,
 
  public:
   AsyncClient(std::shared_ptr<::grpc::Channel> channel, CallbackType callback)
-      : channel_(channel),
+      : channel_{std::move(channel)},
         callback_(callback),
         completion_queue_(CompletionQueuePool::GetCompletionQueue()),
         rpc_method_name_(RpcServiceMethod::MethodName()),

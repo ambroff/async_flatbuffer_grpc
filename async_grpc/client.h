@@ -162,7 +162,7 @@ class Client<RpcServiceMethodConcept,
     return client_writer_->Finish();
   }
 
-  const ResponseType& response() { return response_; }
+  const flatbuffers::grpc::Message<ResponseType>& response() { return response_; }
 
  private:
   bool WriteImpl(flatbuffers::grpc::Message<RequestType>& request, ::grpc::Status* status) {
@@ -173,7 +173,7 @@ class Client<RpcServiceMethodConcept,
   void InstantiateClientWriterIfNeeded() {
     if (!client_writer_) {
       client_writer_.reset(
-          ::grpc::internal::ClientWriterFactory<RequestType>::Create(
+          ::grpc::internal::ClientWriterFactory<flatbuffers::grpc::Message<RequestType>>::Create(
               channel_.get(), rpc_method_, client_context_.get(), &response_));
     }
   }
@@ -285,7 +285,7 @@ class Client<RpcServiceMethodConcept,
   }
 
  private:
-  bool WriteImpl(const RequestType& request, ::grpc::Status* status) {
+  bool WriteImpl(const flatbuffers::grpc::Message<RequestType>& request, ::grpc::Status* status) {
     InstantiateClientReaderWriterIfNeeded();
     return client_reader_writer_->Write(request);
   }
@@ -294,7 +294,7 @@ class Client<RpcServiceMethodConcept,
     if (!client_reader_writer_) {
       client_reader_writer_.reset(
           ::grpc::internal::ClientReaderWriterFactory<
-              RequestType, ResponseType>::Create(channel_.get(), rpc_method_,
+              flatbuffers::grpc::Message<RequestType>, flatbuffers::grpc::Message<ResponseType>>::Create(channel_.get(), rpc_method_,
                                                  client_context_.get()));
     }
   }
@@ -304,7 +304,7 @@ class Client<RpcServiceMethodConcept,
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
 
-  std::unique_ptr<::grpc::ClientReaderWriter<RequestType, ResponseType>>
+  std::unique_ptr<::grpc::ClientReaderWriter<flatbuffers::grpc::Message<RequestType>, flatbuffers::grpc::Message<ResponseType>>>
       client_reader_writer_;
 };
 

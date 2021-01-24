@@ -219,7 +219,7 @@ TEST_F(ServerTest, ProcessRpcStreamTest) {
   }
   EXPECT_TRUE(client.StreamWritesDone());
   EXPECT_TRUE(client.StreamFinish().ok());
-  EXPECT_EQ(client.response().output(), 33);
+  EXPECT_EQ(client.response().GetRoot()->output(), 33);
 }
 
 TEST_F(ServerTest, ProcessUnaryRpcTest) {
