@@ -51,7 +51,8 @@ struct GetSumMethod {
 
 class GetSumHandler : public RpcHandler<GetSumMethod> {
  public:
-  void OnRequest(flatbuffers::grpc::Message<proto::GetSumRequest>& request) override {
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSumRequest>& request) override {
     sum_ += GetContext<MathServerContext>()->additional_increment();
     sum_ += request.GetRoot()->input();
   }
@@ -77,7 +78,8 @@ struct GetRunningSumMethod {
 
 class GetRunningSumHandler : public RpcHandler<GetRunningSumMethod> {
  public:
-  void OnRequest(flatbuffers::grpc::Message<proto::GetSumRequest>& request) override {
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSumRequest>& request) override {
     sum_ += request.GetRoot()->input();
 
     // Respond twice to demonstrate bidirectional streaming.
@@ -112,7 +114,8 @@ struct GetSquareMethod {
 
 class GetSquareHandler : public RpcHandler<GetSquareMethod> {
  public:
-  void OnRequest(flatbuffers::grpc::Message<proto::GetSquareRequest>& request) override {
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSquareRequest>& request) override {
     auto input = request.GetRoot()->input();
 
     if (input < 0) {
@@ -120,7 +123,8 @@ class GetSquareHandler : public RpcHandler<GetSquareMethod> {
     }
 
     flatbuffers::grpc::MessageBuilder builder;
-    auto response_offset = proto::CreateGetSquareResponse(builder, input * input);
+    auto response_offset =
+        proto::CreateGetSquareResponse(builder, input * input);
     builder.Finish(response_offset);
     Send(builder.ReleaseMessage<proto::GetSquareResponse>());
   }
@@ -136,7 +140,8 @@ struct GetEchoMethod {
 
 class GetEchoHandler : public RpcHandler<GetEchoMethod> {
  public:
-  void OnRequest(flatbuffers::grpc::Message<proto::GetEchoRequest>& request) override {
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetEchoRequest>& request) override {
     int value = request.GetRoot()->input();
     Writer writer = GetWriter();
     GetContext<MathServerContext>()->echo_responder.set_value(
@@ -159,7 +164,8 @@ struct GetSequenceMethod {
 
 class GetSequenceHandler : public RpcHandler<GetSequenceMethod> {
  public:
-  void OnRequest(flatbuffers::grpc::Message<proto::GetSequenceRequest>& request) override {
+  void OnRequest(
+      flatbuffers::grpc::Message<proto::GetSequenceRequest>& request) override {
     for (int i = 0; i < request.GetRoot()->input(); ++i) {
       flatbuffers::grpc::MessageBuilder builder;
       auto response_offset = proto::CreateGetSequenceResponse(builder, i);

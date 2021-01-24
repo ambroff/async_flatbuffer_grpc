@@ -34,14 +34,13 @@ namespace detail {
 template <typename MessageType>
 class SpecificMessage : public AnyMessage {
  public:
-  SpecificMessage(MessageType message) {
-  }
+  SpecificMessage(MessageType message) {}
 
  private:
   MessageType message_;
 };
 
-}
+}  // namespace detail
 
 template <typename RpcServiceMethodConcept>
 class RpcHandler {
@@ -58,7 +57,9 @@ class RpcHandler {
 
     bool Write(flatbuffers::grpc::Message<ResponseType> message) const {
       if (auto rpc = rpc_.lock()) {
-        rpc->Write(std::make_unique<detail::SpecificMessage<flatbuffers::grpc::Message<ResponseType>>>(std::move(message)));
+        rpc->Write(
+            std::make_unique<detail::SpecificMessage<
+                flatbuffers::grpc::Message<ResponseType>>>(std::move(message)));
         return true;
       }
       return false;
@@ -117,7 +118,10 @@ class RpcHandler {
   }
 
   void Send(flatbuffers::grpc::Message<ResponseType> response) {
-    rpc_->Write(std::make_unique<detail::SpecificMessage<flatbuffers::grpc::Message<ResponseType>>>(std::move(response)));
+    rpc_->Write(
+        std::make_unique<
+            detail::SpecificMessage<flatbuffers::grpc::Message<ResponseType>>>(
+            std::move(response)));
   }
 
   template <typename T>

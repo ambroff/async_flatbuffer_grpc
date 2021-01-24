@@ -15,10 +15,10 @@
  */
 #pragma once
 
+#include <grpcpp/support/status.h>
+
 #include <functional>
 #include <memory>
-
-#include <grpcpp/support/status.h>
 
 #include "async_grpc/common/blocking_queue.h"
 
