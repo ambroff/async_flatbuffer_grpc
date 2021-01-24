@@ -30,6 +30,20 @@
 
 namespace async_grpc {
 
+namespace detail {
+
+template <typename MessageType>
+class SpecificMessage : public AnyMessage {
+ public:
+  SpecificMessage(MessageType message) {
+  }
+
+ private:
+  MessageType message_;
+};
+
+}
+
 template <typename RpcServiceMethodConcept>
 class RpcHandler {
  public:
@@ -43,7 +57,7 @@ class RpcHandler {
 
     bool Write(flatbuffers::grpc::Message<ResponseType> message) const {
       if (auto rpc = rpc_.lock()) {
-        rpc->Write(std::make_any<flatbuffers::grpc::Message<ResponseType>>(std::move(message)));
+        rpc->Write(std::make_unique<detail::SpecificMessage<flatbuffers::grpc::Message<ResponseType>>>(std::move(message)));
         return true;
       }
       return false;
@@ -92,7 +106,7 @@ class RpcHandler {
 
   virtual void Initialize() {}
 
-  virtual void OnRequest(const RequestType& request) = 0;
+  virtual void OnRequest(flatbuffers::grpc::Message<RequestType>& request) = 0;
 
   void Finish(::grpc::Status status) {
     rpc_->Finish(status);
@@ -102,7 +116,7 @@ class RpcHandler {
   }
 
   void Send(flatbuffers::grpc::Message<ResponseType> response) {
-    rpc_->Write(std::make_any<flatbuffers::grpc::Message<ResponseType>>(std::move(response)));
+    rpc_->Write(std::make_unique<detail::SpecificMessage<flatbuffers::grpc::Message<ResponseType>>>(std::move(response)));
   }
 
   template <typename T>
@@ -118,6 +132,7 @@ class RpcHandler {
   Writer GetWriter() { return Writer(rpc_->GetWeakPtr()); }
 
   virtual void OnReadsDone() {}
+  virtual void OnFinish() {}
 
  private:
   RpcInterface* rpc_;

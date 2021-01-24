@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <any>
 #include <functional>
 #include <memory>
 
@@ -75,6 +74,19 @@ class EventDeleter {
 using UniqueEventPtr = std::unique_ptr<EventBase, EventDeleter>;
 using EventQueue = common::BlockingQueue<UniqueEventPtr>;
 
+/**
+ * RpcInterface::Write() (called by the user's handler class) needs to take a
+ * message object, but it doesn't actually know the type of the message being
+ * used, since that will be determined by the service from the flatbuffer schema
+ * (there is no equivalent to the google::protobuf::Message base class here).
+ *
+ * So instead we do some wacky type-erasure.
+ */
+class AnyMessage {
+ public:
+  virtual ~AnyMessage() = default;
+};
+
 class RpcInterface {
  public:
   virtual ~RpcInterface() = default;
@@ -94,7 +106,7 @@ class RpcInterface {
   virtual void OnReadsDone() = 0;
 
   // KWA FIXME: This is gross. Gotta find another type-erasure method for this.
-  virtual void Write(std::any message) = 0;
+  virtual void Write(std::unique_ptr<AnyMessage> message) = 0;
 
   virtual void Finish(::grpc::Status status) = 0;
 
