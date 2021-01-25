@@ -317,10 +317,12 @@ TEST_F(ServerTest, AsyncClientUnary) {
 
   AsyncClient<GetSquareMethod> async_client(
       client_channel_,
-      [&done, &m, &cv](const ::grpc::Status& status,
-                       const proto::GetSquareResponse* response) {
+      [&done, &m, &cv](
+          const ::grpc::Status& status,
+          const flatbuffers::grpc::Message<proto::GetSquareResponse>*
+              response) {
         EXPECT_TRUE(status.ok());
-        EXPECT_EQ(response->output(), 121);
+        EXPECT_EQ(response->GetRoot()->output(), 121);
         {
           std::lock_guard<std::mutex> lock(m);
           done = true;
@@ -345,8 +347,10 @@ TEST_F(ServerTest, AsyncClientServerStreaming) {
 
   AsyncClient<GetSequenceMethod> async_client(
       client_channel_,
-      [&done, &m, &cv, &counter](const ::grpc::Status& status,
-                                 const proto::GetSequenceResponse* response) {
+      [&done, &m, &cv, &counter](
+          const ::grpc::Status& status,
+          const flatbuffers::grpc::Message<proto::GetSequenceResponse>*
+              response) {
         LOG(INFO) << status.error_code() << " " << status.error_message();
         EXPECT_TRUE(status.ok());
 
@@ -357,7 +361,7 @@ TEST_F(ServerTest, AsyncClientServerStreaming) {
           }
           cv.notify_all();
         } else {
-          EXPECT_EQ(response->output(), counter++);
+          EXPECT_EQ(response->GetRoot()->output(), counter++);
         }
       });
 

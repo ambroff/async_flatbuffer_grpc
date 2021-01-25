@@ -187,7 +187,8 @@ class Client<RpcServiceMethodConcept,
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
 
-  std::unique_ptr<::grpc::ClientWriter<RequestType>> client_writer_;
+  std::unique_ptr<::grpc::ClientWriter<flatbuffers::grpc::Message<RequestType>>>
+      client_writer_;
   flatbuffers::grpc::Message<ResponseType> response_;
 };
 
@@ -236,8 +237,9 @@ class Client<RpcServiceMethodConcept,
   void InstantiateClientReader(
       const flatbuffers::grpc::Message<RequestType>& request) {
     client_reader_.reset(
-        ::grpc::internal::ClientReaderFactory<ResponseType>::Create(
-            channel_.get(), rpc_method_, client_context_.get(), request));
+        ::grpc::internal::ClientReaderFactory<flatbuffers::grpc::Message<
+            ResponseType>>::Create(channel_.get(), rpc_method_,
+                                   client_context_.get(), request));
   }
 
   std::shared_ptr<::grpc::Channel> channel_;
@@ -245,7 +247,9 @@ class Client<RpcServiceMethodConcept,
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
 
-  std::unique_ptr<::grpc::ClientReader<ResponseType>> client_reader_;
+  std::unique_ptr<
+      ::grpc::ClientReader<flatbuffers::grpc::Message<ResponseType>>>
+      client_reader_;
 };
 
 template <typename RpcServiceMethodConcept>

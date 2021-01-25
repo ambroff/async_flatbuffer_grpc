@@ -18,6 +18,7 @@
 #define ASYNC_GRPC_ASYNC_CLIENT_H
 
 #include <memory>
+#include <utility>
 
 #include "async_grpc/rpc_service_method_traits.h"
 #include "common/make_unique.h"
@@ -55,12 +56,12 @@ class AsyncClient<RpcServiceMethodConcept,
   using RpcServiceMethod = RpcServiceMethodTraits<RpcServiceMethodConcept>;
   using RequestType = typename RpcServiceMethod::RequestType;
   using ResponseType = typename RpcServiceMethod::ResponseType;
-  using CallbackType =
-      std::function<void(const ::grpc::Status&, const ResponseType*)>;
+  using CallbackType = std::function<void(
+      const ::grpc::Status&, const flatbuffers::grpc::Message<ResponseType>*)>;
 
  public:
   AsyncClient(std::shared_ptr<::grpc::Channel> channel, CallbackType callback)
-      : channel_(channel),
+      : channel_{std::move(channel)},
         callback_(callback),
         completion_queue_(CompletionQueuePool::GetCompletionQueue()),
         rpc_method_name_(RpcServiceMethod::MethodName()),
@@ -69,12 +70,15 @@ class AsyncClient<RpcServiceMethodConcept,
         finish_event_(CompletionQueue::ClientEvent::Event::FINISH, this) {}
 
   void WriteAsync(const flatbuffers::grpc::Message<RequestType>& request) {
-    response_reader_ =
-        std::unique_ptr<::grpc::ClientAsyncResponseReader<ResponseType>>(
-            ::grpc::internal::ClientAsyncResponseReaderFactory<
-                ResponseType>::Create(channel_.get(), completion_queue_,
-                                      rpc_method_, &client_context_, request,
-                                      /*start=*/false));
+    response_reader_ = std::unique_ptr<::grpc::ClientAsyncResponseReader<
+        flatbuffers::grpc::Message<ResponseType>>>(
+        ::grpc::internal::ClientAsyncResponseReaderFactory<
+            flatbuffers::grpc::Message<ResponseType>>::Create(channel_.get(),
+                                                              completion_queue_,
+                                                              rpc_method_,
+                                                              &client_context_,
+                                                              request,
+                                                              /*start=*/false));
     response_reader_->StartCall();
     response_reader_->Finish(&response_, &status_, (void*)&finish_event_);
   }
@@ -102,11 +106,12 @@ class AsyncClient<RpcServiceMethodConcept,
   ::grpc::CompletionQueue* completion_queue_;
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
-  std::unique_ptr<::grpc::ClientAsyncResponseReader<ResponseType>>
+  std::unique_ptr<::grpc::ClientAsyncResponseReader<
+      flatbuffers::grpc::Message<ResponseType>>>
       response_reader_;
   CompletionQueue::ClientEvent finish_event_;
   ::grpc::Status status_;
-  ResponseType response_;
+  flatbuffers::grpc::Message<ResponseType> response_;
 };
 
 template <typename RpcServiceMethodConcept>
@@ -116,8 +121,8 @@ class AsyncClient<RpcServiceMethodConcept,
   using RpcServiceMethod = RpcServiceMethodTraits<RpcServiceMethodConcept>;
   using RequestType = typename RpcServiceMethod::RequestType;
   using ResponseType = typename RpcServiceMethod::ResponseType;
-  using CallbackType =
-      std::function<void(const ::grpc::Status&, const ResponseType*)>;
+  using CallbackType = std::function<void(
+      const ::grpc::Status&, const flatbuffers::grpc::Message<ResponseType>*)>;
 
  public:
   AsyncClient(std::shared_ptr<::grpc::Channel> channel, CallbackType callback)
@@ -133,11 +138,12 @@ class AsyncClient<RpcServiceMethodConcept,
 
   void WriteAsync(const flatbuffers::grpc::Message<RequestType>& request) {
     // Start the call.
-    response_reader_ = std::unique_ptr<::grpc::ClientAsyncReader<ResponseType>>(
-        ::grpc::internal::ClientAsyncReaderFactory<ResponseType>::Create(
-            channel_.get(), completion_queue_, rpc_method_, &client_context_,
-            request,
-            /*start=*/true, (void*)&write_event_));
+    response_reader_ = std::unique_ptr<
+        ::grpc::ClientAsyncReader<flatbuffers::grpc::Message<ResponseType>>>(
+        ::grpc::internal::ClientAsyncReaderFactory<flatbuffers::grpc::Message<
+            ResponseType>>::Create(channel_.get(), completion_queue_,
+                                   rpc_method_, &client_context_, request,
+                                   /*start=*/true, (void*)&write_event_));
   }
 
   void HandleEvent(const CompletionQueue::ClientEvent& client_event) override {
@@ -208,12 +214,14 @@ class AsyncClient<RpcServiceMethodConcept,
   ::grpc::CompletionQueue* completion_queue_;
   const std::string rpc_method_name_;
   const ::grpc::internal::RpcMethod rpc_method_;
-  std::unique_ptr<::grpc::ClientAsyncReader<ResponseType>> response_reader_;
+  std::unique_ptr<
+      ::grpc::ClientAsyncReader<flatbuffers::grpc::Message<ResponseType>>>
+      response_reader_;
   CompletionQueue::ClientEvent write_event_;
   CompletionQueue::ClientEvent read_event_;
   CompletionQueue::ClientEvent finish_event_;
   ::grpc::Status status_;
-  ResponseType response_;
+  flatbuffers::grpc::Message<ResponseType> response_;
   ::grpc::Status finish_status_;
 };
 
