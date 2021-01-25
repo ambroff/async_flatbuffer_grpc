@@ -140,9 +140,11 @@ class RpcHandler {
   virtual void OnFinish() {}
 
  private:
-  RpcInterface* rpc_;
-  ExecutionContext* execution_context_;
+  RpcInterface* rpc_{nullptr};
+  ExecutionContext* execution_context_{nullptr};
+#if BUILD_TRACING
   std::unique_ptr<Span> span_;
+#endif
 };
 
 }  // namespace async_grpc
